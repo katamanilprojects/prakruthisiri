@@ -1,0 +1,70 @@
+# ==============================================================================
+# Prakruthi Siri - Production Git Ignore Rules
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment Secrets & Database Credentials
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.development
+.env.production
+config/db_config.php
+
+# ------------------------------------------------------------------------------
+# 2. Operating System & Editor Metadata
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Folders
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------------------------
+# 3. User-Generated Media & Uploads (DO NOT OVERWRITE OR COMMIT)
+# ------------------------------------------------------------------------------
+public/uploads/gates/*
+uploads/gates/*
+!public/uploads/gates/.gitkeep
+!public/uploads/gates/.htaccess
+!uploads/gates/.gitkeep
+!uploads/gates/.htaccess
+
+public/uploads/products/*
+uploads/products/*
+!public/uploads/products/.gitkeep
+!public/uploads/products/*.svg
+!public/uploads/products/*.webp
+!uploads/products/.gitkeep
+!uploads/products/*.svg
+!uploads/products/*.webp
+
+# ------------------------------------------------------------------------------
+# 4. Runtime Cache, Locks & Logs
+# ------------------------------------------------------------------------------
+*.log
+error_log
+/tmp/
+/scratch/
+prakruthi_rl_*.lock
+*.lock.d
+project_review.txt
+
+# ------------------------------------------------------------------------------
+# 5. Dependency & Test Artifacts
+# ------------------------------------------------------------------------------
+vendor/
+composer.lock
+.phpunit.result.cache

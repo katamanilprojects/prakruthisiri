@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B4D3E" />
+      <stop offset="100%" stop-color="#0F2D24" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3C37A" />
+      <stop offset="100%" stop-color="#E3A857" />
+    </linearGradient>
+  </defs>
+  <!-- Background Rounded Shield / Tile -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="216" fill="none" stroke="url(#goldGrad)" stroke-width="8" stroke-dasharray="16 8" opacity="0.4"/>
+  
+  <!-- Organic Sprout & Leaves Graphic -->
+  <g transform="translate(136, 120) scale(0.95)">
+    <!-- Main Stalk -->
+    <path d="M128 260 C128 170 148 110 180 60 C180 130 160 210 128 260 Z" fill="url(#goldGrad)" />
+    
+    <!-- Left Organic Leaf -->
+    <path d="M130 200 C80 180 20 140 30 80 C80 80 120 140 130 200 Z" fill="#2ED573" />
+    <path d="M130 200 C95 185 50 150 55 105" stroke="#1B4D3E" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+    <!-- Right Harvest Leaf -->
+    <path d="M140 150 C180 110 230 80 240 20 C190 30 150 90 140 150 Z" fill="url(#goldGrad)" />
+    <path d="M140 150 C170 120 205 95 210 50" stroke="#0F2D24" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+    <!-- Base Organic Soil Pot / Seed -->
+    <ellipse cx="128" cy="272" rx="54" ry="18" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Brand Typography -->
+  <text x="256" y="420" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="40" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="2">PRAKRUTHI SIRI</text>
+  <text x="256" y="454" font-family="'Noto Sans Telugu', system-ui, sans-serif" font-size="22" font-weight="600" fill="#E3A857" text-anchor="middle">ప్రకృతి సిరి ఆర్గానిక్స్</text>
+</svg>

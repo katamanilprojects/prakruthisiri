@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /driver/
+Disallow: /api/
+Disallow: /uploads/gates/
+Disallow: /clean-old-orders.php
+Disallow: /config/
+Disallow: /database/
+Disallow: /src/
+
+Sitemap: https://prakruthisiri.com/sitemap.xml

@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Block direct access to environment configuration files
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+
+# Never rewrite admin or driver requests
+RewriteRule ^(admin|driver)(/.*)?$ - [L,NC]
+
+# Do not rewrite if the requested resource exists as a file or directory
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Internal rewrite root to public/
+RewriteRule ^$ public/ [L]
+RewriteRule ^((?!(public|admin|driver)/).*)$ public/$1 [L]
+</IfModule>

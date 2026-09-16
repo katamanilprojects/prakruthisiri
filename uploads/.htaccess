@@ -1,0 +1,27 @@
+# Prakruthi Siri - Upload Directory Security
+# Strictly disallow script execution in user-uploaded media folder
+
+# Disable directory browsing
+Options -Indexes -ExecCGI
+
+# Prevent execution of any scripts
+<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|php8|phar|sh|cgi|pl|py|bash|exe|jsp|asp|aspx)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Only allow standard static image and document types
+<FilesMatch "(?i)\.(jpg|jpeg|png|gif|webp|svg|pdf)$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</FilesMatch>

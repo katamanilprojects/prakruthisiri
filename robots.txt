@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /driver/
+Disallow: /config/
+Disallow: /database/
+Disallow: /src/
+
+Sitemap: https://prakruthisiri.com/sitemap.xml
