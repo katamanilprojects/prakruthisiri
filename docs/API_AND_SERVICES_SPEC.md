@@ -306,7 +306,7 @@ All endpoints in `admin/api/` require an active administrative session (`$_SESSI
 #### Action: `optimize_route`
 * **Method:** `POST`
 * **Parameters:** `target_date`, `schedule_id`, `driver_id` *(optional)*, `region` *(optional)*.
-* **Processing:** Sequences orders by straight-line distance from farm hub, sets `route_sequence_number` (1..N) and `route_leg_number` (`ceil(seq / 8)`), generates initial Google Maps multi-waypoint URL.
+* **Processing:** Sequences orders by straight-line distance from farm hub, sets `route_sequence_number` (1..N) and `route_leg_number` (`ceil(seq / 7)`), generates initial Google Maps multi-waypoint URL.
 * **Response (200 OK):**
   ```json
   {
@@ -395,7 +395,7 @@ All endpoints in `admin/api/` require an active administrative session (`$_SESSI
 
 #### Report Actions: JSON Data vs. CSV Export
 * **Parameters:**
-  * `date_dimension`: `'today'`, `'yesterday'`, `'specific_date'`, `'this_week'`, `'this_month'`, `'specific_month'`, `'financial_year'`, `'calendar_year'`.
+  * `date_dimension`: `'today'`, `'yesterday'`, `'specific_date'`, `'custom_range'`, `'this_week'`, `'this_month'`, `'specific_month'`, `'financial_year'`, `'calendar_year'`.
   * `payment_mode`: `'ALL'`, `'COD'`, `'UPI'`.
   * `order_status`: `'delivered'` (default), `'completed'`, `'cancelled'`.
   * `crop_id`: Specific crop ID to filter (optional).

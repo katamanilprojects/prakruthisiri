@@ -692,13 +692,13 @@ class DatabaseMigration
         $schedules = [
             [
                 'delivery' => $primaryRunDate->format('Y-m-d'),
-                'cutoff'   => $primaryRunDate->modify('-1 day')->format('Y-m-d 18:00:00'),
+                'cutoff'   => $primaryRunDate->modify('-1 day')->format('Y-m-d 19:00:00'),
                 'harvest'  => $primaryRunDate->modify('-1 day')->format('Y-m-d'),
                 'open'     => 1,
             ],
             [
                 'delivery' => $primaryRunDate->modify('+2 days')->format('Y-m-d'),
-                'cutoff'   => $primaryRunDate->modify('+1 day')->format('Y-m-d 18:00:00'),
+                'cutoff'   => $primaryRunDate->modify('+1 day')->format('Y-m-d 19:00:00'),
                 'harvest'  => $primaryRunDate->modify('+1 day')->format('Y-m-d'),
                 'open'     => 1,
             ],

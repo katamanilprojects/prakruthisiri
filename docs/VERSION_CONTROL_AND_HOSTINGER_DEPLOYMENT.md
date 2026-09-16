@@ -187,22 +187,15 @@ Automated Git deployment eliminates human error, avoids slow FTP transfers, and 
              • Leaves public/uploads/gates/ untouched
 ```
 
-#### Step 1: Initialize Git Repository Locally (if not yet tracked)
-Open terminal in the project directory:
+#### Step 1: Link to Remote Repository (GitHub / GitLab)
+The repository is already initialized locally on branch `main` with the clean baseline commit `86d898e` (`feat: initial baseline commit for Prakruthi Siri platform and docs`). To connect to your remote repository:
 ```bash
 cd /Applications/XAMPP/xamppfiles/htdocs/hostinger/prakruthisiri
 
-# Initialize repository and set main branch
-git init -b main
-
-# Add all files (ensuring .gitignore is respected)
-git add .
-
-# Commit baseline production state
-git commit -m "feat(core): baseline production release of Prakruthi Siri platform"
-
 # Link to your remote GitHub / GitLab repository
-git remote add origin git@github.com:your-organization/prakruthi-siri.git
+git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+
+# Push initial baseline commit to production main branch
 git push -u origin main
 ```
 

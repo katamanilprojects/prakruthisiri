@@ -227,7 +227,7 @@ Customer orders with target delivery date, schedule linkage, and driver dispatch
 | `payment_status` | `ENUM(...)` | NO | `'pending'` | Lifecycle: `'pending'`, `'verified'`, `'failed'`. |
 | `assigned_driver_id` | `INT UNSIGNED` | YES | `NULL` | FK referencing `staff_users.id` (Driver). |
 | `route_sequence_number`| `INT` | YES | `NULL` | Stop sequence position (#1..N). |
-| `route_leg_number` | `INT UNSIGNED` | YES | `NULL` | 7-to-8 stop navigation circuit leg (`ceil(seq / 8)`). |
+| `route_leg_number` | `INT UNSIGNED` | YES | `NULL` | 7-stop navigation circuit leg (`ceil(seq / 7)`). |
 | `delivery_notes` | `TEXT` | YES | `NULL` | Customer or admin instructions. |
 | `delivered_at` | `DATETIME` | YES | `NULL` | Doorstep timestamp recorded upon driver proof verification. |
 | `created_at` | `TIMESTAMP` | NO | `CURRENT_TIMESTAMP` | Placement timestamp. |

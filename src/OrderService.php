@@ -193,11 +193,11 @@ class OrderService
                     throw new OrderValidationException("Ordering is currently closed for the {$schedule['delivery_day']} ({$schedule['target_region']}) run.");
                 }
                 if ($schedule['order_open_datetime'] > $nowStr) {
-                    $opensFormatted = date('l, d M at h:i A', strtotime($schedule['order_open_datetime']));
+                    $opensFormatted = date('l, d M \a\t h:i A', strtotime($schedule['order_open_datetime']));
                     throw new OrderValidationException("Ordering for the {$schedule['delivery_day']} ({$schedule['target_region']}) run opens on {$opensFormatted}.");
                 }
                 if ($schedule['cutoff_datetime'] <= $nowStr) {
-                    $closedFormatted = date('l, d M at h:i A', strtotime($schedule['cutoff_datetime']));
+                    $closedFormatted = date('l, d M \a\t h:i A', strtotime($schedule['cutoff_datetime']));
                     throw new OrderValidationException("Ordering for the {$schedule['delivery_day']} ({$schedule['target_region']}) run closed on {$closedFormatted}.");
                 }
             }
@@ -207,7 +207,7 @@ class OrderService
         } else {
             $upcoming = $this->runInventoryService->getNextUpcomingScheduleForRegion($customerRegion, $now);
             if ($upcoming) {
-                $opensFormatted = date('l, d M at h:i A', strtotime($upcoming['order_open_datetime']));
+                $opensFormatted = date('l, d M \a\t h:i A', strtotime($upcoming['order_open_datetime']));
                 throw new OrderValidationException("No active ordering window open for {$customerRegion}. The next run ({$upcoming['delivery_day']}, " . date('d M', strtotime($upcoming['delivery_date'])) . ") opens on {$opensFormatted}.");
             }
             throw new OrderValidationException("No scheduled delivery runs available for {$customerRegion}. Please check back soon.");

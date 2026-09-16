@@ -7,7 +7,7 @@ declare(strict_types=1);
  * 
  * Endpoints for:
  *  - Real-Road TSP Closed-Loop Sequencing via OSRM
- *  - Auto-Partitioning into 8-Stop Legs for mobile navigation
+ *  - Auto-Partitioning into 7-Stop Legs for mobile navigation
  *  - Driver assignment (bulk per-leg or per-run)
  *  - Finalize & Dispatch transition (placed -> packed / out_for_delivery)
  *  - Farm / Store Hub Depot Location Updates
@@ -185,7 +185,7 @@ try {
                 foreach ($orderedStops as $stop) {
                     $oId = (int) $stop['order_id'];
                     $seq = (int) $stop['route_sequence_number'];
-                    $leg = (int) ceil($seq / 8);
+                    $leg = (int) ceil($seq / 7);
 
                     $seqCases[] = "WHEN {$oId} THEN {$seq}";
                     $legCases[] = "WHEN {$oId} THEN {$leg}";
@@ -255,7 +255,7 @@ try {
                 $orderId  = (int) ($a['order_id'] ?? 0);
                 $driverId = !empty($a['driver_id']) ? (int) $a['driver_id'] : null;
                 $seq      = !empty($a['sequence']) ? (int) $a['sequence'] : null;
-                $leg      = $seq !== null ? (int) ceil($seq / 8) : null;
+                $leg      = $seq !== null ? (int) ceil($seq / 7) : null;
 
                 if ($orderId <= 0) continue;
 

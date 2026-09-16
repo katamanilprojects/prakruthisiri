@@ -112,7 +112,7 @@ All domain logic, operational boundaries, and validation algorithms are encapsul
 * **Core Responsibilities:**
   * Coordinates fallback injection: Attaches regional centroid coordinates (`Hanamkonda`, `Warangal`, `Outskirts`) to orders lacking exact GPS coordinates.
   * Sequential stop sorting: Orders delivery stops by straight-line distance from the farm hub.
-  * Google Maps URL generator: Produces chained route URLs partitioned into 7-to-8 stop legs (`ceil($seq / 8)`), with origin, intermediate waypoints, and return to the depot on the final leg.
+  * Google Maps URL generator: Produces chained route URLs partitioned into 7-stop legs (`ceil($seq / 7)`), with origin, intermediate waypoints, and return to the depot on the final leg.
   * Route manifest CSV generator (`exportManifestCsv`): Streams UTF-8 BOM formatted manifests for physical driver clipboards.
 
 ### 2.5 `DriverManifestService.php`
@@ -136,7 +136,7 @@ All domain logic, operational boundaries, and validation algorithms are encapsul
   * Seeds operational defaults (admin account, demo drivers, 8 foundational vegetable varieties, system settings).
 * **`TimeWindow.php`:**
   * Standardizes all temporal operations to `Asia/Kolkata`.
-  * Computes target delivery dates ($T+1$ daytime vs $T+2$ post-cutoff).
+  * Computes target delivery dates ($T+1$ daytime prior to 19:00 IST vs $T+2$ post-cutoff).
   * Computes active production run dates ($T$ early morning dispatch vs $T+1$ evening harvest).
 
 ---

@@ -181,7 +181,7 @@
 * **Interface:** `admin/routes.php` and `admin/api/dispatch-api.php`.
 * **Algorithm:**
   1. Orders are sorted by straight-line Euclidean distance from the Central Farm Hub (`18.028439, 79.635941`) using regional centroids for orders without pinned GPS coordinates.
-  2. Sequential numbers (`route_sequence_number`) $1, 2, \dots, N$ and leg numbers (`route_leg_number = ceil(seq / 8)`) are persisted to the database.
+  2. Sequential numbers (`route_sequence_number`) $1, 2, \dots, N$ and leg numbers (`route_leg_number = ceil(seq / 7)`) are persisted to the database.
   3. Google Maps navigation circuits are partitioned into **7-stop chunks**:
      * **Leg 1 Origin:** Farm Hub Depot (`18.028439,79.635941`). Destination/Waypoints: Stops #1 to #7.
      * **Leg 2 Origin:** Stop #7 coordinate. Destination/Waypoints: Stops #8 to #14.

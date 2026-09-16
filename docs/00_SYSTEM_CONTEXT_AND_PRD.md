@@ -134,9 +134,9 @@ To maximize delivery density and minimize travel times, farm runs are isolated b
 
 ### 4.3 Target Delivery Date Resolution Algorithm
 Implemented in `PrakruthiSiri\TimeWindow::getTargetDeliveryDate`:
-* Order placed between `00:00:00` and `17:59:59`: Targets Tomorrow morning ($T + 1$).
-* Order placed between `18:00:00` and `23:59:59`: Cutoff passed for next-day harvest; targets Day-After-Tomorrow morning ($T + 2$).
-* Production run calculation (`getActiveProductionRunDate`): Operations running during evening packing (18:00–23:59) are packing for tomorrow morning ($T + 1$), while early morning dispatch (< 06:00 AM) operates on current day ($T$).
+* Order placed between `00:00:00` and `18:59:59`: Targets Tomorrow morning ($T + 1$).
+* Order placed between `19:00:00` and `23:59:59`: Cutoff passed for next-day harvest; targets Day-After-Tomorrow morning ($T + 2$).
+* Production run calculation (`getActiveProductionRunDate`): Operations running during evening packing (19:00–23:59) are packing for tomorrow morning ($T + 1$), while early morning dispatch (< 06:00 AM) operates on current day ($T$).
 
 ### 4.4 Hard Batch Capacity & Administrative Override
 * **Standard Capacity Ceiling:** Maximum **30 booked orders** per delivery schedule run.

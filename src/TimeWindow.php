@@ -14,8 +14,8 @@ use DateTimeZone;
 class TimeWindow
 {
     public const TIMEZONE = 'Asia/Kolkata';
-    public const CUTOFF_TIME = '18:00:00';
-    public const CUTOFF_HOUR = 18;
+    public const CUTOFF_TIME = '19:00:00';
+    public const CUTOFF_HOUR = 19;
 
     private static ?DateTimeZone $timeZoneInstance = null;
 
@@ -41,8 +41,8 @@ class TimeWindow
 
     /**
      * Calculates the target delivery date according to the platform cutoff rules:
-     * - 06:00:00 AM to 17:59:59 PM: Tomorrow (T + 1)
-     * - 18:00:00 PM to 23:59:59 PM: Day-After-Tomorrow (T + 2)
+     * - 06:00:00 AM to 18:59:59 PM: Tomorrow (T + 1)
+     * - 19:00:00 PM to 23:59:59 PM: Day-After-Tomorrow (T + 2)
      * - 00:00:00 AM to 05:59:59 AM: Tomorrow (T + 1)
      *
      * The returned DateTimeImmutable is normalized to 00:00:00 in Asia/Kolkata timezone.
@@ -52,24 +52,24 @@ class TimeWindow
         $kolkataNow = $now->setTimezone(self::getTimeZone());
         $timeStr = $kolkataNow->format('H:i:s');
 
-        // Check if current time falls in the evening post-cutoff window (18:00:00 - 23:59:59)
+        // Check if current time falls in the evening post-cutoff window (19:00:00 - 23:59:59)
         if ($timeStr >= self::CUTOFF_TIME && $timeStr <= '23:59:59') {
             return $kolkataNow->modify('+2 days')->setTime(0, 0, 0);
         }
 
-        // Both 00:00:00 - 05:59:59 (early morning before harvest) and 06:00:00 - 17:59:59 (daytime)
+        // Both 00:00:00 - 05:59:59 (early morning before harvest) and 06:00:00 - 18:59:59 (daytime)
         // target Tomorrow morning (T + 1)
         return $kolkataNow->modify('+1 day')->setTime(0, 0, 0);
     }
 
     /**
      * Calculates the active production, harvest packing, and dispatch run date.
-     * Unlike new customer orders (which target T+2 after 18:00 cutoff), operations
+     * Unlike new customer orders (which target T+2 after 19:00 cutoff), operations
      * during the evening are actively packing for tomorrow morning's delivery.
      *
      * - 00:00:00 AM to 05:59:59 AM (Early morning dispatch): Today (T)
-     * - 06:00:00 AM to 17:59:59 PM (Daytime preparation): Tomorrow (T + 1)
-     * - 18:00:00 PM to 23:59:59 PM (Evening harvest & packing): Tomorrow (T + 1)
+     * - 06:00:00 AM to 18:59:59 PM (Daytime preparation): Tomorrow (T + 1)
+     * - 19:00:00 PM to 23:59:59 PM (Evening harvest & packing): Tomorrow (T + 1)
      */
     public function getActiveProductionRunDate(DateTimeImmutable $now): DateTimeImmutable
     {
@@ -86,7 +86,7 @@ class TimeWindow
     }
 
     /**
-     * Checks if the given timestamp is between 18:00:00 and 23:59:59 in Asia/Kolkata.
+     * Checks if the given timestamp is between 19:00:00 and 23:59:59 in Asia/Kolkata.
      */
     public function isPastCutoff(DateTimeImmutable $now): bool
     {
@@ -97,7 +97,7 @@ class TimeWindow
     }
 
     /**
-     * Returns a customer-facing banner notice when past 6:00 PM cutoff, or null otherwise.
+     * Returns a customer-facing banner notice when past 7:00 PM cutoff, or null otherwise.
      */
     public function getBannerNotice(DateTimeImmutable $now): ?string
     {
@@ -109,7 +109,7 @@ class TimeWindow
         $formattedDate = $targetDate->format('l, d M Y');
 
         return sprintf(
-            'Notice: Today’s 6:00 PM order cutoff has passed for tomorrow morning delivery. ' .
+            'Notice: Today’s 7:00 PM order cutoff has passed for tomorrow morning delivery. ' .
             'Fresh chemical-free vegetables will be harvested tomorrow evening and delivered on %s.',
             $formattedDate
         );
