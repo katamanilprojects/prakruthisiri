@@ -61,6 +61,7 @@ error_log
 prakruthi_rl_*.lock
 *.lock.d
 project_review.txt
+backend_core.txt
 
 # ------------------------------------------------------------------------------
 # 5. Dependency & Test Artifacts
