@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Telugu:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Telugu:wght@500;600;700;800&display=swap');
 
 :root {
   /* CDCApp High-Contrast Modern Palette */
@@ -49,7 +49,7 @@
 }
 
 body {
-  font-family: 'Inter', 'Noto Sans Telugu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans Telugu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--color-text);
   background-color: var(--color-bg);
   font-size: 15px;
@@ -335,6 +335,127 @@ body {
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
+}
+
+/* Green Pulse Status Animation */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.6; }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #10b981;
+  display: inline-block;
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Modern 2-Column Mobile Grocery Catalog Grid */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* No Mid-Word Truncation for Product Titles */
+.prod-title {
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
+  hyphens: manual !important;
+}
+
+/* Modern "+ ADD" Finger-Friendly Grocery Button */
+.btn-add-modern {
+  min-width: 76px;
+  min-height: 38px;
+  height: 38px;
+  padding: 0 0.875rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1.5px solid #059669;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 2px 0 rgba(5, 150, 105, 0.12);
+}
+
+.btn-add-modern:hover {
+  background-color: #059669;
+  color: #ffffff;
+}
+
+.btn-add-modern:active {
+  transform: scale(0.95);
+}
+
+/* Active Interactive Emerald Stepper Container */
+.stepper-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #059669;
+  color: #ffffff;
+  border-radius: 0.75rem;
+  padding: 2px;
+  min-height: 38px;
+  height: 38px;
+  min-width: 84px;
+  box-shadow: 0 2px 4px 0 rgba(5, 150, 105, 0.25);
+  border: 1px solid #047857;
+}
+
+.stepper-active-btn {
+  width: 30px;
+  height: 32px;
+  min-width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stepper-active-btn:active {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: scale(0.9);
+}
+
+.stepper-active-count {
+  min-width: 22px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #ffffff;
+  padding: 0 2px;
 }
 
 @media print {

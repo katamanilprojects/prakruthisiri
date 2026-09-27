@@ -256,9 +256,10 @@ try {
     $itemsSumSql = "
         SELECT 
             COALESCE(SUM(oi.`half_kg_quantity`), 0) AS `total_packets`,
-            COALESCE(SUM(oi.`half_kg_quantity` * 0.5), 0.0) AS `total_kg_sold`
+            COALESCE(SUM(oi.`half_kg_quantity` * COALESCE(p.`unit_weight_kg`, 0.500)), 0.0) AS `total_kg_sold`
         FROM `order_items` oi
         JOIN `orders` o ON oi.`order_id` = o.`id`
+        JOIN `products` p ON oi.`product_id` = p.`id`
         WHERE {$itemsWhereSql}
     ";
     $itemsSumStmt = $pdo->prepare($itemsSumSql);
@@ -343,9 +344,10 @@ try {
         SELECT 
             DATE_FORMAT(o.`target_delivery_date`, '{$groupByFormat}') AS `period_key`,
             COALESCE(SUM(oi.`half_kg_quantity`), 0) AS `period_packets`,
-            COALESCE(SUM(oi.`half_kg_quantity` * 0.5), 0.0) AS `period_kg`
+            COALESCE(SUM(oi.`half_kg_quantity` * COALESCE(p.`unit_weight_kg`, 0.500)), 0.0) AS `period_kg`
         FROM `order_items` oi
         JOIN `orders` o ON oi.`order_id` = o.`id`
+        JOIN `products` p ON oi.`product_id` = p.`id`
         WHERE {$itemsWhereSql}
         GROUP BY `period_key`
     ";
@@ -393,7 +395,7 @@ try {
                 p.`telugu_name`,
                 p.`category`,
                 COALESCE(SUM(oi.`half_kg_quantity`), 0) AS `packets_sold`,
-                COALESCE(SUM(oi.`half_kg_quantity` * 0.5), 0.0) AS `kg_sold`,
+                COALESCE(SUM(oi.`half_kg_quantity` * COALESCE(p.`unit_weight_kg`, 0.500)), 0.0) AS `kg_sold`,
                 COALESCE(AVG(oi.`unit_price_applied`), p.`price_per_half_kg`) AS `avg_price_per_unit`,
                 COALESCE(SUM(oi.`line_total`), 0.00) AS `crop_gross_revenue`
             FROM `products` p
@@ -412,7 +414,7 @@ try {
                 p.`telugu_name`,
                 p.`category`,
                 COALESCE(SUM(oi.`half_kg_quantity`), 0) AS `packets_sold`,
-                COALESCE(SUM(oi.`half_kg_quantity` * 0.5), 0.0) AS `kg_sold`,
+                COALESCE(SUM(oi.`half_kg_quantity` * COALESCE(p.`unit_weight_kg`, 0.500)), 0.0) AS `kg_sold`,
                 COALESCE(AVG(oi.`unit_price_applied`), p.`price_per_half_kg`) AS `avg_price_per_unit`,
                 COALESCE(SUM(oi.`line_total`), 0.00) AS `crop_gross_revenue`
             FROM `products` p
@@ -526,7 +528,8 @@ try {
                 oi.`order_id`,
                 oi.`half_kg_quantity`,
                 p.`name`,
-                p.`telugu_name`
+                p.`telugu_name`,
+                COALESCE(p.`unit_weight_kg`, 0.500) AS `unit_weight_kg`
             FROM `order_items` oi
             JOIN `products` p ON oi.`product_id` = p.`id`
             WHERE oi.`order_id` IN ($inClause){$cropCondition}
@@ -545,7 +548,8 @@ try {
         $rawItems = $itemsByOrder[$oId] ?? [];
         $summaryParts = [];
         foreach ($rawItems as $it) {
-            $summaryParts[] = $it['name'] . ' (' . ($it['half_kg_quantity'] * 0.5) . 'kg)';
+            $wKg = round($it['half_kg_quantity'] * (float)($it['unit_weight_kg'] ?? 0.5), 2);
+            $summaryParts[] = $it['name'] . ' (' . $wKg . 'kg)';
         }
         $itemsText = !empty($summaryParts) ? implode(', ', $summaryParts) : 'None';
 

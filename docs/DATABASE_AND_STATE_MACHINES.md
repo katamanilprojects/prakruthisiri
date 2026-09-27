@@ -149,8 +149,10 @@ Master catalog of chemical-free vegetables.
 | `name` | `VARCHAR(100)` | NO | — | English crop name (e.g., `'Country Tomato'`). |
 | `telugu_name` | `VARCHAR(100)` | NO | — | Native Telugu crop name (e.g., `'నాటు టమాటా'`). |
 | `category` | `ENUM('standard', 'premium')`| NO | `'standard'` | Crop tier. |
-| `price_per_half_kg` | `DECIMAL(8, 2)` | NO | — | Price per 0.5 kg packet. |
-| `available_half_kg_stock`| `INT UNSIGNED` | NO | `0` | Default template stock in 0.5 kg packets. |
+| `unit_label` | `VARCHAR(50)` | NO | `'0.5 kg'` | Human-readable package unit label (e.g., `'0.5 kg'`, `'200 g bunch'`, `'1 piece'`). |
+| `unit_weight_kg` | `DECIMAL(5, 3)` | NO | `0.500` | Net weight per package unit in kilograms (e.g., `0.500`, `0.200`, `0.150`, `1.000`). |
+| `price_per_half_kg` | `DECIMAL(8, 2)` | NO | — | Price per unit package (legacy column name). |
+| `available_half_kg_stock`| `INT UNSIGNED` | NO | `0` | Available stock in discrete package units (legacy column name). |
 | `image_path` | `VARCHAR(255)` | YES | `NULL` | Relative web path to product SVG/WebP image. |
 | `is_active` | `TINYINT(1)` | NO | `1` | Global catalog visibility flag. |
 | `updated_at` | `TIMESTAMP` | NO | `CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | Catalog modification timestamp. |
@@ -194,9 +196,11 @@ Day-wise isolated harvest stock and pricing per delivery schedule run.
 | `id` | `INT UNSIGNED` | NO | AUTO_INCREMENT (PK) | Unique run inventory ID. |
 | `schedule_id` | `INT UNSIGNED` | NO | — | Foreign key referencing `delivery_schedules.id`. |
 | `product_id` | `INT UNSIGNED` | NO | — | Foreign key referencing `products.id`. |
-| `harvest_kg` | `DECIMAL(8, 2)` | NO | `0.00` | Estimated harvest yield in kg. |
-| `available_half_kg_stock`| `INT UNSIGNED` | NO | `0` | Available stock in 0.5 kg packets ($\text{Kg} \times 2$). |
-| `price_per_half_kg` | `DECIMAL(8, 2)` | NO | — | Run-specific price per 0.5 kg packet. |
+| `harvest_kg` | `DECIMAL(8, 2)` | NO | `0.00` | Estimated harvest yield in kg ($\text{Packets} \times \text{unit\_weight\_kg}$). |
+| `available_half_kg_stock`| `INT UNSIGNED` | NO | `0` | Available stock in discrete package units (legacy column name). |
+| `price_per_half_kg` | `DECIMAL(8, 2)` | NO | — | Run-specific price per package unit. |
+| `unit_label` | `VARCHAR(50)` | NO | `'0.5 kg'` | Human-readable package unit label. |
+| `unit_weight_kg` | `DECIMAL(5, 3)` | NO | `0.500` | Net weight per unit package in kg. |
 | `is_active` | `TINYINT(1)` | NO | `1` | Availability flag for this specific run. |
 | `created_at` | `TIMESTAMP` | NO | `CURRENT_TIMESTAMP` | Creation timestamp. |
 | `updated_at` | `TIMESTAMP` | NO | `CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | Last inventory update timestamp. |
@@ -250,15 +254,15 @@ Customer orders with target delivery date, schedule linkage, and driver dispatch
 ---
 
 ### 2.9 Table: `order_items`
-Purchased line items recorded strictly in 0.5 kg increments.
+Purchased line items recorded in discrete package units.
 
 | Column | Data Type | Nullable | Default | Description |
 | :--- | :--- | :---: | :--- | :--- |
 | `id` | `INT UNSIGNED` | NO | AUTO_INCREMENT (PK) | Unique line item ID. |
 | `order_id` | `INT UNSIGNED` | NO | — | FK referencing `orders.id`. |
 | `product_id` | `INT UNSIGNED` | NO | — | FK referencing `products.id`. |
-| `half_kg_quantity` | `INT UNSIGNED` | NO | — | Discrete 0.5 kg packet count. |
-| `unit_price_applied` | `DECIMAL(8, 2)` | NO | — | Price per 0.5 kg applied at checkout. |
+| `half_kg_quantity` | `INT UNSIGNED` | NO | — | Discrete package unit count ordered (legacy column name). |
+| `unit_price_applied` | `DECIMAL(8, 2)` | NO | — | Price per unit package applied at checkout. |
 | `line_total` | `DECIMAL(8, 2)` | NO | — | `half_kg_quantity * unit_price_applied`. |
 
 **Foreign Keys & Indexes:**
@@ -267,6 +271,21 @@ Purchased line items recorded strictly in 0.5 kg increments.
 * `KEY idx_order_items_order (order_id)`
 * `KEY idx_order_items_product (product_id)`
 * `KEY idx_order_items_order_product (order_id, product_id)`
+
+---
+
+### 2.10 Legacy Column Nomenclature & Multi-Unit Mapping
+To maintain 100% backwards compatibility across existing database tables without executing high-risk schema refactoring on production DBs:
+1. Column `available_half_kg_stock` (in `products` and `run_inventory`) and `half_kg_quantity` (in `order_items`) are legacy integer column names. Functionally, they store discrete package / unit counts (e.g. packets, bunches, or pieces).
+2. Column `price_per_half_kg` stores the unit price for 1 package unit (whether 500g bag, 200g bunch, or 1 piece).
+3. The net physical weight in kilograms for any line item or stock quantity is computed as:
+   $$\text{Weight (kg)} = \text{Unit Quantity} \times \text{unit\_weight\_kg}$$
+4. Standard defaults for `unit_label` and `unit_weight_kg`:
+   - Standard vegetables (Tomato, Chilli, Benda, Vankaya, Beera): `0.5 kg` / `0.500 kg`
+   - Leafy bunches (Palakura, Chukkakura, Methi): `200 g bunch` / `0.200 kg`
+   - Gongura bunch: `300 g bunch` / `0.300 kg`
+   - Kothimeer bunch: `150 g bunch` / `0.150 kg`
+   - Individual pieces (Sora bottle gourd): `1 piece` / `0.500 kg`
 
 ---
 

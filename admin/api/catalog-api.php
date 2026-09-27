@@ -50,6 +50,8 @@ try {
                         `category`,
                         `price_per_half_kg`,
                         `available_half_kg_stock`,
+                        `unit_label`,
+                        `unit_weight_kg`,
                         `image_path`,
                         `is_active`,
                         `updated_at`
@@ -59,8 +61,10 @@ try {
                 $products = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
                 foreach ($products as &$p) {
+                    $unitWeight = (float) ($p['unit_weight_kg'] ?? 0.5);
+                    if ($unitWeight <= 0) $unitWeight = 0.5;
                     $stockPackets = (int) $p['available_half_kg_stock'];
-                    $p['stock_kg'] = $stockPackets * 0.5;
+                    $p['stock_kg'] = $stockPackets * $unitWeight;
                     $p['price_fmt'] = '₹' . number_format((float) $p['price_per_half_kg'], 2);
                 }
                 unset($p);
@@ -80,6 +84,10 @@ try {
                 exit;
             }
 
+            // Fetch unit weights map for accurate stock packet calculation
+            $wStmt = $pdo->query("SELECT `id`, `unit_weight_kg` FROM `products`");
+            $productWeights = $wStmt ? ($wStmt->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) : [];
+
             if ($scheduleId > 0) {
                 // Update run_inventory strictly for this schedule
                 $preparedItems = [];
@@ -89,16 +97,19 @@ try {
                     $id = (int) ($item['id'] ?? $item['product_id'] ?? 0);
                     if ($id <= 0) continue;
 
+                    $unitWeight = (float) ($productWeights[$id] ?? $item['unit_weight_kg'] ?? 0.5);
+                    if ($unitWeight <= 0) $unitWeight = 0.5;
+
                     $stockKg = isset($item['stock_kg']) ? (float) $item['stock_kg'] : null;
                     $stockPackets = isset($item['stock_packets']) ? (int) $item['stock_packets'] : null;
 
                     if ($stockKg !== null) {
-                        $stockPackets = (int) round($stockKg * 2.0);
+                        $stockPackets = (int) round($stockKg / $unitWeight);
                     } elseif ($stockPackets === null) {
                         $stockPackets = 0;
                     }
                     if ($stockPackets < 0) $stockPackets = 0;
-                    if ($stockKg === null) $stockKg = $stockPackets * 0.5;
+                    if ($stockKg === null) $stockKg = $stockPackets * $unitWeight;
 
                     $price = isset($item['price']) ? (float) $item['price'] : 0.00;
                     $isActive = isset($item['is_active']) ? (int) (bool) $item['is_active'] : 1;
@@ -113,6 +124,7 @@ try {
                         'available_half_kg_stock' => $stockPackets,
                         'price_per_half_kg'       => $price,
                         'is_active'               => $isActive,
+                        'unit_weight_kg'          => $unitWeight,
                     ];
                 }
 
@@ -153,11 +165,14 @@ try {
                 $id = (int) ($item['id'] ?? $item['product_id'] ?? 0);
                 if ($id <= 0) continue;
 
+                $unitWeight = (float) ($productWeights[$id] ?? $item['unit_weight_kg'] ?? 0.5);
+                if ($unitWeight <= 0) $unitWeight = 0.5;
+
                 $stockKg = isset($item['stock_kg']) ? (float) $item['stock_kg'] : null;
                 $stockPackets = isset($item['stock_packets']) ? (int) $item['stock_packets'] : null;
 
                 if ($stockKg !== null) {
-                    $stockPackets = (int) round($stockKg * 2.0);
+                    $stockPackets = (int) round($stockKg / $unitWeight);
                 } elseif ($stockPackets === null) {
                     $stockPackets = 0;
                 }
@@ -209,11 +224,16 @@ try {
                 exit;
             }
 
+            $wStmt = $pdo->prepare("SELECT `unit_weight_kg` FROM `products` WHERE `id` = :id LIMIT 1");
+            $wStmt->execute([':id' => $productId]);
+            $unitWeight = (float) ($wStmt->fetchColumn() ?: 0.5);
+            if ($unitWeight <= 0) $unitWeight = 0.5;
+
             $stockKg = isset($data['stock_kg']) ? (float) $data['stock_kg'] : null;
             $stockPackets = isset($data['stock_packets']) ? (int) $data['stock_packets'] : null;
 
             if ($stockKg !== null) {
-                $stockPackets = (int) round($stockKg * 2.0);
+                $stockPackets = (int) round($stockKg / $unitWeight);
             } elseif ($stockPackets === null) {
                 $stockPackets = 0;
             }
@@ -242,7 +262,7 @@ try {
                 'message'       => 'Product updated successfully.',
                 'product_id'    => $productId,
                 'stock_packets' => $stockPackets,
-                'stock_kg'      => $stockPackets * 0.5,
+                'stock_kg'      => $stockPackets * $unitWeight,
             ], JSON_UNESCAPED_UNICODE);
             exit;
 

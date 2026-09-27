@@ -35,19 +35,21 @@ class RunInventoryService
     }
 
     /**
-     * Converts a kilogram weight into half-kg packet units.
+     * Converts a kilogram weight into packet/unit count based on product unit weight.
      */
-    public function convertKgToPackets(float $kg): int
+    public function convertKgToPackets(float $kg, float $unitWeightKg = 0.5): int
     {
-        return (int) round($kg * 2.0);
+        $unitWeight = $unitWeightKg > 0 ? $unitWeightKg : 0.5;
+        return (int) round($kg / $unitWeight);
     }
 
     /**
-     * Converts half-kg packet units into equivalent kilograms.
+     * Converts packet/unit counts into equivalent kilograms based on product unit weight.
      */
-    public function convertPacketsToKg(int $packets): float
+    public function convertPacketsToKg(int $packets, float $unitWeightKg = 0.5): float
     {
-        return $packets * 0.5;
+        $unitWeight = $unitWeightKg > 0 ? $unitWeightKg : 0.5;
+        return $packets * $unitWeight;
     }
 
     /**
@@ -92,6 +94,8 @@ class RunInventoryService
                 p.`telugu_name`,
                 p.`category`,
                 p.`image_path`,
+                COALESCE(ri.`unit_label`, p.`unit_label`, "0.5 kg") AS `unit_label`,
+                COALESCE(ri.`unit_weight_kg`, p.`unit_weight_kg`, 0.500) AS `unit_weight_kg`,
                 ri.`id` AS `run_inventory_id`,
                 ri.`schedule_id`,
                 ri.`harvest_kg`,
@@ -112,6 +116,7 @@ class RunInventoryService
             $packets = (int) $r['available_half_kg_stock'];
             $pricePerHalfKg = (float) $r['price_per_half_kg'];
             $harvestKg = (float) $r['harvest_kg'];
+            $unitWeight = (float) ($r['unit_weight_kg'] ?? 0.500);
 
             return [
                 'id'                      => (int) $r['product_id'],
@@ -121,12 +126,14 @@ class RunInventoryService
                 'name'                    => $r['name'],
                 'telugu_name'             => $r['telugu_name'],
                 'category'                => $r['category'],
+                'unit_label'              => (string) ($r['unit_label'] ?? '0.5 kg'),
+                'unit_weight_kg'          => $unitWeight,
                 'image_path'              => $r['image_path'],
                 'harvest_kg'              => $harvestKg,
                 'price_per_half_kg'       => $pricePerHalfKg,
                 'price_per_kg_equivalent' => round($pricePerHalfKg * 2.0, 2),
                 'available_half_kg_stock' => $packets,
-                'available_kg_equivalent' => $this->convertPacketsToKg($packets),
+                'available_kg_equivalent' => $this->convertPacketsToKg($packets, $unitWeight),
                 'is_in_stock'             => $packets > 0,
                 'is_active'               => (bool) $r['is_active'],
             ];
@@ -168,9 +175,10 @@ class RunInventoryService
                 }
 
                 $harvestKg = isset($item['harvest_kg']) ? (float) $item['harvest_kg'] : 0.00;
+                $unitWeight = isset($item['unit_weight_kg']) ? (float) $item['unit_weight_kg'] : 0.5;
                 $stock = isset($item['available_half_kg_stock']) 
                     ? (int) $item['available_half_kg_stock'] 
-                    : $this->convertKgToPackets($harvestKg);
+                    : $this->convertKgToPackets($harvestKg, $unitWeight);
 
                 $price = isset($item['price_per_half_kg']) ? (float) $item['price_per_half_kg'] : 0.00;
                 $isActive = !empty($item['is_active']) ? 1 : 0;

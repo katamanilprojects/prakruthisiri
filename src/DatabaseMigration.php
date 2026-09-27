@@ -144,6 +144,8 @@ class DatabaseMigration
                 `harvest_kg` DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
                 `available_half_kg_stock` INT UNSIGNED NOT NULL DEFAULT 0,
                 `price_per_half_kg` DECIMAL(8, 2) NOT NULL,
+                `unit_label` VARCHAR(50) NOT NULL DEFAULT '0.5 kg',
+                `unit_weight_kg` DECIMAL(5, 3) NOT NULL DEFAULT 0.500,
                 `is_active` TINYINT(1) NOT NULL DEFAULT 1,
                 `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -162,6 +164,29 @@ class DatabaseMigration
                     ON DELETE RESTRICT
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        // Ensure products and run_inventory have unit_label and unit_weight_kg columns
+        try {
+            $pCols = $pdo->query("SHOW COLUMNS FROM `products` LIKE 'unit_weight_kg'")->fetchAll();
+            if (empty($pCols)) {
+                $pLabel = $pdo->query("SHOW COLUMNS FROM `products` LIKE 'unit_label'")->fetchAll();
+                if (empty($pLabel)) {
+                    $pdo->exec("ALTER TABLE `products` ADD COLUMN `unit_label` VARCHAR(50) NOT NULL DEFAULT '0.5 kg' AFTER `category`");
+                }
+                $pdo->exec("ALTER TABLE `products` ADD COLUMN `unit_weight_kg` DECIMAL(5, 3) NOT NULL DEFAULT 0.500 AFTER `unit_label`");
+            }
+
+            $riCols = $pdo->query("SHOW COLUMNS FROM `run_inventory` LIKE 'unit_weight_kg'")->fetchAll();
+            if (empty($riCols)) {
+                $riLabel = $pdo->query("SHOW COLUMNS FROM `run_inventory` LIKE 'unit_label'")->fetchAll();
+                if (empty($riLabel)) {
+                    $pdo->exec("ALTER TABLE `run_inventory` ADD COLUMN `unit_label` VARCHAR(50) NOT NULL DEFAULT '0.5 kg' AFTER `price_per_half_kg`");
+                }
+                $pdo->exec("ALTER TABLE `run_inventory` ADD COLUMN `unit_weight_kg` DECIMAL(5, 3) NOT NULL DEFAULT 0.500 AFTER `unit_label`");
+            }
+        } catch (\Throwable $e) {
+            error_log('unit_label / unit_weight_kg auto-migration notice: ' . $e->getMessage());
+        }
 
         // 4. Ensure orders table has route_leg_number and schedule_id columns
         try {

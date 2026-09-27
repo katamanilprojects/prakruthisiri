@@ -1,3 +1,14 @@
+<?php
+declare(strict_types=1);
+
+$driverName        = $driverName ?? 'Driver';
+$orders            = $orders ?? [];
+$totalStops        = $totalStops ?? 0;
+$deliveredStops    = $deliveredStops ?? 0;
+$selectedFormatted = $selectedFormatted ?? date('d M Y');
+$availableRuns     = $availableRuns ?? [];
+$scheduleInfo      = $scheduleInfo ?? null;
+?>
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-50">
 <head>
@@ -126,7 +137,6 @@
     </div>
 
     <!-- ==================================================================== -->
-    <!-- ==================================================================== -->
     <!-- STREAMLINED STOP LIST (#1 TO #N)                                     -->
     <!-- 4 Essential Data Points + 3 Finger-Friendly Buttons                  -->
     <!-- ==================================================================== -->
@@ -204,7 +214,7 @@
             <!-- Vegetables Items Quick Pill -->
             <?php if (!empty($o['items'])): ?>
               <div class="text-xs text-slate-600 font-medium">
-                <strong>Items:</strong> <?= htmlspecialchars(implode(', ', array_map(fn($it) => ($it['telugu_name'] ?: $it['product_name']) . ' × ' . $it['half_kg_quantity'], $o['items'])), ENT_QUOTES) ?>
+                <strong>Items:</strong> <?= htmlspecialchars(implode(', ', array_map(fn($it) => ($it['telugu_name'] ?: $it['product_name']) . ' × ' . $it['half_kg_quantity'] . ' ' . ($it['unit_label'] ?? 'pkts'), $o['items'])), ENT_QUOTES) ?>
               </div>
             <?php endif; ?>
 
@@ -423,338 +433,7 @@
     </div>
   </div>
 
-  <script src="../assets/js/i18n-driver.js"></script>
-  <script>
-    let currentDriverLang = localStorage.getItem('ps_driver_lang') || 'te';
-    let activeOrderId = 0;
-    let activeCustomerId = 0;
-    let currentGeoLat = null;
-    let currentGeoLng = null;
-
-    function acquireGpsLocation() {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        pos => { 
-          currentGeoLat = pos.coords.latitude; 
-          currentGeoLng = pos.coords.longitude; 
-        },
-        err => { 
-          console.warn('High accuracy GPS timed out (8s), falling back to standard accuracy:', err.message);
-          navigator.geolocation.getCurrentPosition(
-            pos => { 
-              currentGeoLat = pos.coords.latitude; 
-              currentGeoLng = pos.coords.longitude; 
-            },
-            err2 => { 
-              console.warn('Geolocation completely unavailable or indoor timeout:', err2.message); 
-            },
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
-          );
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      );
-    }
-    acquireGpsLocation();
-
-    function setDriverLanguage(lang) {
-      currentDriverLang = lang;
-      localStorage.setItem('ps_driver_lang', lang);
-      if (typeof DRIVER_I18N === 'undefined') return;
-
-      const isTe = (lang === 'te');
-      const t = DRIVER_I18N[lang] || DRIVER_I18N.te;
-
-      const btnTe = document.getElementById('driver-lang-te');
-      const btnEn = document.getElementById('driver-lang-en');
-
-      if (isTe) {
-        btnTe.className = 'px-2.5 py-1 rounded-md bg-emerald-600 text-white font-bold transition';
-        btnEn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
-      } else {
-        btnEn.className = 'px-2.5 py-1 rounded-md bg-emerald-600 text-white font-bold transition';
-        btnTe.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
-      }
-
-      document.getElementById('driver-app-sub').textContent = t.app_bar_subtitle;
-      document.getElementById('link-driver-logout').textContent = t.sign_out;
-      document.getElementById('label-scheduled-run').textContent = t.scheduled_run;
-      document.getElementById('label-stops').textContent = t.stops_label;
-      document.getElementById('label-cod').textContent = t.cod_to_collect_label;
-
-      document.querySelectorAll('.btn-call-text').forEach(el => el.textContent = t.call_btn);
-      document.querySelectorAll('.btn-wa-text').forEach(el => el.textContent = t.whatsapp_btn || 'WhatsApp');
-      document.querySelectorAll('.btn-map-text').forEach(el => el.textContent = t.map_btn);
-      document.querySelectorAll('.btn-complete-text').forEach(el => el.textContent = t.deliver_verify_btn);
-      document.querySelectorAll('.btn-quick-deliver-text').forEach(el => el.textContent = t.quick_deliver_btn);
-      document.querySelectorAll('.btn-first-deliver-text').forEach(el => {
-        if (el.dataset.hasPhoto === '1') {
-          el.textContent = t.gps_pin_needed_btn || (isTe ? '📍 జీపీఎస్ లొకేషన్ & డెలివరీ' : '📍 Capture GPS & Deliver');
-        } else {
-          el.textContent = t.first_delivery_btn;
-        }
-      });
-    }
-
-    function openProofModal(orderId, customerId, orderCode, customerName, isCod, totalAmount) {
-      activeOrderId = orderId;
-      activeCustomerId = customerId;
-
-      const t = DRIVER_I18N[currentDriverLang] || DRIVER_I18N.te;
-      document.getElementById('modal-title').textContent = customerName + (currentDriverLang === 'te' ? ' గారి డెలివరీ' : ' Delivery');
-      document.getElementById('modal-order-code').textContent = (currentDriverLang === 'te' ? 'ఆర్డర్ #' : 'Order #') + orderCode;
-
-      const codBox = document.getElementById('modal-cod-box');
-      if (isCod) {
-        codBox.classList.remove('hidden');
-        document.getElementById('modal-cod-amount').textContent = '₹' + Number(totalAmount).toFixed(2);
-      } else {
-        codBox.classList.add('hidden');
-      }
-
-      document.getElementById('gate-photo-input').value = '';
-      document.getElementById('photo-preview-wrap').classList.add('hidden');
-      document.getElementById('proof-modal').classList.remove('hidden');
-    }
-
-    function closeProofModal() {
-      document.getElementById('proof-modal').classList.add('hidden');
-      activeOrderId = 0;
-      activeCustomerId = 0;
-    }
-
-    document.getElementById('gate-photo-input')?.addEventListener('change', function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (evt) {
-        document.getElementById('photo-preview').src = evt.target.result;
-        document.getElementById('photo-preview-wrap').classList.remove('hidden');
-      };
-      reader.readAsDataURL(file);
-    });
-
-    async function compressImageFile(file, maxDimension = 1600, quality = 0.8) {
-      return new Promise((resolve) => {
-        if (!file || file.size < 800 * 1024) {
-          resolve(file);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-            if (width > maxDimension || height > maxDimension) {
-              if (width > height) {
-                height = Math.round((height * maxDimension) / width);
-                width = maxDimension;
-              } else {
-                width = Math.round((width * maxDimension) / height);
-                height = maxDimension;
-              }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                const compressedFile = new File([blob], (file.name || 'gate_photo.jpg').replace(/\.[^.]+$/, '.jpg'), {
-                  type: 'image/jpeg',
-                  lastModified: Date.now()
-                });
-                resolve(compressedFile);
-              } else {
-                resolve(file);
-              }
-            }, 'image/jpeg', quality);
-          };
-          img.onerror = () => resolve(file);
-          img.src = e.target.result;
-        };
-        reader.onerror = () => resolve(file);
-        reader.readAsDataURL(file);
-      });
-    }
-
-    async function submitDeliveryProof() {
-      const t = DRIVER_I18N[currentDriverLang] || DRIVER_I18N.te;
-      const fileInput = document.getElementById('gate-photo-input');
-      if (!fileInput.files || !fileInput.files[0]) {
-        alert(t.photo_required_alert);
-        return;
-      }
-
-      const btn = document.getElementById('btn-confirm-delivery');
-      const btnText = document.getElementById('btn-confirm-delivery-text');
-      btn.disabled = true;
-      btnText.textContent = t.saving_proof_btn;
-
-      try {
-        const rawPhoto = fileInput.files[0];
-        const compressedPhoto = await compressImageFile(rawPhoto);
-
-        const formData = new FormData();
-        formData.append('order_id', activeOrderId);
-        formData.append('customer_id', activeCustomerId);
-        formData.append('gate_photo', compressedPhoto);
-        if (currentGeoLat && currentGeoLng) {
-          formData.append('latitude', currentGeoLat);
-          formData.append('longitude', currentGeoLng);
-        }
-
-        const resp = await fetch('api/verify-delivery.php', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await resp.json();
-
-        if (data.success) {
-          alert(t.delivery_success_alert);
-          window.location.reload();
-        } else {
-          alert('Error: ' + (data.error || 'Failed to complete delivery'));
-          btn.disabled = false;
-          btnText.textContent = t.confirm_delivery_btn;
-        }
-      } catch (err) {
-        alert('Network error: ' + err.message);
-        btn.disabled = false;
-        btnText.textContent = t.confirm_delivery_btn;
-      }
-    }
-
-    let activeQdOrderId = 0;
-    let isQdCod = false;
-
-    function openQuickDeliverModal(orderId, orderCode, customerName, address, isCod, totalAmount) {
-      activeQdOrderId = orderId;
-      isQdCod = isCod;
-
-      document.getElementById('qd-order-code').textContent = '#' + orderCode;
-      document.getElementById('qd-customer-name').textContent = customerName;
-      document.getElementById('qd-address').textContent = address;
-
-      const codBox = document.getElementById('qd-cod-box');
-      const upiBox = document.getElementById('qd-upi-box');
-      const confirmBtn = document.getElementById('btn-qd-confirm');
-      const codCheckbox = document.getElementById('qd-cod-checkbox');
-
-      if (isCod) {
-        codBox.classList.remove('hidden');
-        upiBox.classList.add('hidden');
-        document.getElementById('qd-cod-amount').textContent = '₹' + Number(totalAmount).toFixed(2);
-        codCheckbox.checked = false;
-        confirmBtn.disabled = true;
-        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        codBox.classList.add('hidden');
-        upiBox.classList.remove('hidden');
-        confirmBtn.disabled = false;
-        confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-
-      document.getElementById('quick-deliver-modal').classList.remove('hidden');
-    }
-
-    function toggleQuickDeliverSubmit() {
-      const confirmBtn = document.getElementById('btn-qd-confirm');
-      const codCheckbox = document.getElementById('qd-cod-checkbox');
-      if (isQdCod) {
-        confirmBtn.disabled = !codCheckbox.checked;
-        if (codCheckbox.checked) {
-          confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        } else {
-          confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-      }
-    }
-
-    function closeQuickDeliverModal() {
-      document.getElementById('quick-deliver-modal').classList.add('hidden');
-      activeQdOrderId = 0;
-    }
-
-    async function executeQuickDeliver() {
-      if (isQdCod) {
-        const codCheckbox = document.getElementById('qd-cod-checkbox');
-        if (!codCheckbox.checked) {
-          alert('Please verify cash collection by checking the confirmation box.');
-          return;
-        }
-      }
-
-      const btn = document.getElementById('btn-qd-confirm');
-      const btnText = document.getElementById('btn-qd-confirm-text');
-      btn.disabled = true;
-      btnText.textContent = (currentDriverLang === 'te' ? 'నమోదు చేస్తోంది...' : 'Marking Delivered...');
-
-      try {
-        const resp = await fetch('api/verify-delivery.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'quick_deliver',
-            order_id: activeQdOrderId
-          })
-        });
-        const data = await resp.json();
-
-        if (data.success) {
-          const t = DRIVER_I18N[currentDriverLang] || DRIVER_I18N.te;
-          alert(t.delivery_success_alert || 'Delivery verified and stop completed successfully!');
-          window.location.reload();
-        } else {
-          alert('Error: ' + (data.error || 'Failed to update order'));
-          btn.disabled = false;
-          btnText.textContent = 'Confirm Delivery';
-        }
-      } catch (err) {
-        alert('Network error: ' + err.message);
-        btn.disabled = false;
-        btnText.textContent = 'Confirm Delivery';
-      }
-    }
-
-    document.getElementById('driver-lang-te')?.addEventListener('click', () => setDriverLanguage('te'));
-    document.getElementById('driver-lang-en')?.addEventListener('click', () => setDriverLanguage('en'));
-
-    setDriverLanguage(currentDriverLang);
-
-    // --------------------------------------------------------------------------
-    // Driver PWA Installation Logic
-    // --------------------------------------------------------------------------
-    let deferredDriverPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredDriverPrompt = e;
-    });
-
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-      document.getElementById('btn-pwa-install-driver')?.classList.add('hidden');
-    }
-
-    function triggerDriverPwaInstall() {
-      if (deferredDriverPrompt) {
-        deferredDriverPrompt.prompt();
-        deferredDriverPrompt.userChoice.then((choice) => {
-          if (choice.outcome === 'accepted') {
-            document.getElementById('btn-pwa-install-driver')?.classList.add('hidden');
-          }
-          deferredDriverPrompt = null;
-        });
-      } else {
-        const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIos) {
-          alert('To install PS Driver on your iPhone/iPad:\n\n1. Tap the Share button 📤 in Safari.\n2. Scroll down & tap "Add to Home Screen" ➕.');
-        } else {
-          alert('To install PS Driver:\n\nIn Chrome/Edge menu (⋮), select "Install App" or "Add to Home Screen".');
-        }
-      }
-    }
-  </script>
+  <script src="assets/js/i18n-driver.js"></script>
+  <script src="assets/js/camera-gps.js"></script>
 </body>
 </html>

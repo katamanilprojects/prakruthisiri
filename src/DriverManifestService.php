@@ -187,7 +187,8 @@ class DriverManifestService
                     oi.unit_price_applied, 
                     oi.line_total,
                     p.name AS product_name, 
-                    p.telugu_name
+                    p.telugu_name,
+                    p.unit_label
                 FROM `order_items` oi
                 JOIN `products` p ON oi.product_id = p.id
                 WHERE oi.order_id IN ($inClause)
