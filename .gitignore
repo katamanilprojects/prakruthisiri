@@ -50,11 +50,11 @@ uploads/milestones/*
 public/uploads/products/*
 uploads/products/*
 !public/uploads/products/.gitkeep
-!public/uploads/products/*.svg
-!public/uploads/products/*.webp
+!public/uploads/products/*.jpeg
+!public/uploads/products/*.jpg
 !uploads/products/.gitkeep
-!uploads/products/*.svg
-!uploads/products/*.webp
+!uploads/products/*.jpeg
+!uploads/products/*.jpg
 
 # ------------------------------------------------------------------------------
 # 4. Runtime Cache, Locks & Logs

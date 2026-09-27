@@ -63,10 +63,10 @@ class RunInventoryService
 
         $stmt = $this->pdo->prepare('
             INSERT INTO `run_inventory` (
-                `schedule_id`, `product_id`, `harvest_kg`, `available_half_kg_stock`, `price_per_half_kg`, `is_active`
+                `schedule_id`, `product_id`, `harvest_kg`, `available_half_kg_stock`, `price_per_half_kg`, `pricing_unit`, `unit_label`, `unit_weight_kg`, `is_active`
             )
             SELECT 
-                :sid, p.`id`, ROUND(p.`available_half_kg_stock` * 0.5, 2), p.`available_half_kg_stock`, p.`price_per_half_kg`, p.`is_active`
+                :sid, p.`id`, ROUND(p.`available_half_kg_stock` * 0.5, 2), p.`available_half_kg_stock`, p.`price_per_half_kg`, p.`pricing_unit`, p.`unit_label`, p.`unit_weight_kg`, p.`is_active`
             FROM `products` p
             WHERE p.`is_active` = 1
               AND NOT EXISTS (
