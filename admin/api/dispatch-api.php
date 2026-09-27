@@ -182,25 +182,38 @@ try {
                 $legCases = [];
                 $ids = [];
 
+                $startCases = [];
+                $endCases   = [];
                 foreach ($orderedStops as $stop) {
                     $oId = (int) $stop['order_id'];
                     $seq = (int) $stop['route_sequence_number'];
                     $leg = (int) ceil($seq / 7);
 
-                    $seqCases[] = "WHEN {$oId} THEN {$seq}";
-                    $legCases[] = "WHEN {$oId} THEN {$leg}";
-                    $ids[]      = $oId;
+                    $startMins = (8 * 60 + 30) + (($seq - 1) * 12);
+                    $endMins   = $startMins + 90;
+                    $startTime = sprintf('%02d:%02d:00', floor($startMins / 60), $startMins % 60);
+                    $endTime   = sprintf('%02d:%02d:00', floor($endMins / 60), $endMins % 60);
+
+                    $seqCases[]   = "WHEN {$oId} THEN {$seq}";
+                    $legCases[]   = "WHEN {$oId} THEN {$leg}";
+                    $startCases[] = "WHEN {$oId} THEN '{$startTime}'";
+                    $endCases[]   = "WHEN {$oId} THEN '{$endTime}'";
+                    $ids[]        = $oId;
                 }
 
-                $idList = implode(',', $ids);
-                $seqSql = implode(' ', $seqCases);
-                $legSql = implode(' ', $legCases);
+                $idList   = implode(',', $ids);
+                $seqSql   = implode(' ', $seqCases);
+                $legSql   = implode(' ', $legCases);
+                $startSql = implode(' ', $startCases);
+                $endSql   = implode(' ', $endCases);
 
                 $bulkSql = "
                     UPDATE `orders`
                     SET 
-                        `route_sequence_number` = CASE `id` {$seqSql} END,
-                        `route_leg_number`      = CASE `id` {$legSql} END
+                        `route_sequence_number`    = CASE `id` {$seqSql} END,
+                        `route_leg_number`         = CASE `id` {$legSql} END,
+                        `estimated_delivery_start` = CASE `id` {$startSql} END,
+                        `estimated_delivery_end`   = CASE `id` {$endSql} END
                     WHERE `id` IN ({$idList})
                 ";
 
@@ -244,9 +257,11 @@ try {
             $stmt = $pdo->prepare("
                 UPDATE `orders`
                 SET 
-                    `assigned_driver_id`    = :driver_id,
-                    `route_sequence_number` = :seq_number,
-                    `route_leg_number`      = :leg_number
+                    `assigned_driver_id`       = :driver_id,
+                    `route_sequence_number`    = :seq_number,
+                    `route_leg_number`         = :leg_number,
+                    `estimated_delivery_start` = :est_start,
+                    `estimated_delivery_end`   = :est_end
                 WHERE `id` = :order_id
             ");
 
@@ -256,6 +271,15 @@ try {
                 $driverId = !empty($a['driver_id']) ? (int) $a['driver_id'] : null;
                 $seq      = !empty($a['sequence']) ? (int) $a['sequence'] : null;
                 $leg      = $seq !== null ? (int) ceil($seq / 7) : null;
+                $estStart = null;
+                $estEnd   = null;
+
+                if ($seq !== null && $seq > 0) {
+                    $startMins = (8 * 60 + 30) + (($seq - 1) * 12);
+                    $endMins   = $startMins + 90;
+                    $estStart  = sprintf('%02d:%02d:00', floor($startMins / 60), $startMins % 60);
+                    $estEnd    = sprintf('%02d:%02d:00', floor($endMins / 60), $endMins % 60);
+                }
 
                 if ($orderId <= 0) continue;
 
@@ -263,6 +287,8 @@ try {
                     ':driver_id'   => $driverId,
                     ':seq_number'  => $seq,
                     ':leg_number'  => $leg,
+                    ':est_start'   => $estStart,
+                    ':est_end'     => $estEnd,
                     ':order_id'    => $orderId,
                 ]);
                 $count++;

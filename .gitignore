@@ -42,6 +42,11 @@ uploads/gates/*
 !uploads/gates/.gitkeep
 !uploads/gates/.htaccess
 
+public/uploads/milestones/*
+uploads/milestones/*
+!public/uploads/milestones/.gitkeep
+!uploads/milestones/.gitkeep
+
 public/uploads/products/*
 uploads/products/*
 !public/uploads/products/.gitkeep

@@ -32,7 +32,8 @@ if ($orderCode !== '') {
             SELECT 
                 o.`id`, o.`order_code`, o.`order_status`, o.`payment_method`, o.`payment_status`,
                 o.`subtotal`, o.`delivery_fee`, o.`total_amount`, o.`created_at`, o.`delivered_at`,
-                o.`target_delivery_date`,
+                o.`target_delivery_date`, o.`route_sequence_number`, o.`schedule_id`,
+                o.`estimated_delivery_start`, o.`estimated_delivery_end`,
                 c.`full_name`, c.`phone_number`, c.`delivery_address`, c.`landmark`, c.`region`,
                 s.`delivery_day`, s.`delivery_date` AS `schedule_date`, s.`target_region`
             FROM `orders` o
@@ -46,6 +47,35 @@ if ($orderCode !== '') {
         $order = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($order) {
+            // REQ-ETA-01/02: queue position — how many non-cancelled orders in same batch
+            // and how many stops the driver has already completed
+            $queueStmt = $pdo->prepare("
+                SELECT
+                    COUNT(*) AS total_in_batch,
+                    SUM(CASE WHEN `order_status` = 'delivered'
+                              AND (`route_sequence_number` < :myseq OR :myseq2 = 0)
+                         THEN 1 ELSE 0 END) AS stops_done
+                FROM `orders`
+                WHERE `schedule_id` = :sid AND `order_status` != 'cancelled'
+            ");
+            $queueStmt->execute([
+                ':sid'    => $order['schedule_id'],
+                ':myseq'  => (int)($order['route_sequence_number'] ?? 0),
+                ':myseq2' => (int)($order['route_sequence_number'] ?? 0),
+            ]);
+            $queueRow = $queueStmt->fetch(PDO::FETCH_ASSOC);
+            $order['total_in_batch'] = (int)($queueRow['total_in_batch'] ?? 0);
+            $order['stops_done']     = (int)($queueRow['stops_done'] ?? 0);
+
+            // Calculate 1-to-2-hour ETA window fallback if not set in DB
+            if (empty($order['estimated_delivery_start']) && !empty($order['route_sequence_number'])) {
+                $seq = (int)$order['route_sequence_number'];
+                $startMins = (8 * 60 + 30) + (($seq - 1) * 12);
+                $endMins   = $startMins + 90;
+                $order['estimated_delivery_start'] = sprintf('%02d:%02d:00', floor($startMins / 60), $startMins % 60);
+                $order['estimated_delivery_end']   = sprintf('%02d:%02d:00', floor($endMins / 60), $endMins % 60);
+            }
+
             $itemStmt = $pdo->prepare("
                 SELECT oi.`half_kg_quantity`, oi.`unit_price_applied`, oi.`line_total`,
                        p.`name` AS `product_name`, p.`telugu_name`
@@ -200,6 +230,49 @@ if ($order) {
         </div>
       </div>
 
+      <?php
+        // REQ-ETA-01: ETA window display
+        $etaStart = $order['estimated_delivery_start'] ?? null;
+        $etaEnd   = $order['estimated_delivery_end']   ?? null;
+        $mySeq    = (int)($order['route_sequence_number'] ?? 0);
+        $totalBatch = (int)($order['total_in_batch'] ?? 0);
+        $stopsDone  = (int)($order['stops_done'] ?? 0);
+        $showEta    = ($etaStart && $etaEnd && in_array($order['order_status'], ['placed','packed','out_for_delivery'], true));
+        $showQueue  = ($mySeq > 0 && $totalBatch > 0 && in_array($order['order_status'], ['placed','packed','out_for_delivery'], true));
+      ?>
+      <?php if ($showEta || $showQueue): ?>
+      <div class="app-card bg-emerald-50 border border-emerald-200 space-y-2">
+        <?php if ($showEta): ?>
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🕐</span>
+          <div>
+            <div class="text-xs font-bold text-emerald-900" id="lbl-eta-heading"></div>
+            <div class="text-sm font-extrabold text-emerald-800" id="eta-window-text"
+                 data-day="<?= htmlspecialchars($order['delivery_day'] ?? '', ENT_QUOTES) ?>"
+                 data-start="<?= date('h:i A', strtotime($etaStart)) ?>"
+                 data-end="<?= date('h:i A', strtotime($etaEnd)) ?>">
+              <?= (!empty($order['delivery_day']) ? htmlspecialchars($order['delivery_day'], ENT_QUOTES) . ' ' : '') ?>between <?= date('h:i A', strtotime($etaStart)) ?> – <?= date('h:i A', strtotime($etaEnd)) ?>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
+        <?php if ($showQueue): ?>
+        <div class="flex items-center gap-2 <?= $showEta ? 'border-t border-emerald-200 pt-2' : '' ?>">
+          <span class="text-lg">📍</span>
+          <div>
+            <div class="text-xs font-bold text-emerald-900" id="lbl-queue-heading"></div>
+            <div class="text-sm font-extrabold text-emerald-800" id="queue-position-text"
+                 data-status="<?= htmlspecialchars($order['order_status'], ENT_QUOTES) ?>"
+                 data-myseq="<?= $mySeq ?>" 
+                 data-total="<?= $totalBatch ?>" 
+                 data-driverstop="<?= min($stopsDone + 1, $totalBatch) ?>"
+                 data-done="<?= $stopsDone ?>"></div>
+          </div>
+        </div>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
+
       <!-- 4-Step Vertical Progress Timeline -->
       <div class="app-card space-y-4">
         <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2" id="lbl-progress-title"></h3>
@@ -303,6 +376,31 @@ if ($order) {
         </div>
       </div>
 
+      <!-- REQ-TRC-02: Batch Traceability Card with QR & Link -->
+      <?php
+        $batchUrl = 'batch.php?code=' . urlencode($order['order_code']);
+        $qrImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=0&data=" . urlencode((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['PHP_SELF']) . '/' . $batchUrl);
+      ?>
+      <div class="app-card space-y-3 bg-emerald-50/50 border border-emerald-200">
+        <div class="flex items-center justify-between border-b border-emerald-200 pb-2">
+          <span class="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5" id="lbl-track-trace-title">
+            <span>🌿</span> <span>పంట మూలం &amp; సేంద్రీయ ప్రయాణం</span>
+          </span>
+          <span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold">100% Organic</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="p-1 bg-white rounded-xl border border-emerald-200 shrink-0">
+            <img src="<?= htmlspecialchars($qrImageUrl, ENT_QUOTES) ?>" alt="Batch QR" width="64" height="64" class="rounded-lg">
+          </div>
+          <div class="text-xs space-y-1">
+            <p class="text-slate-600 text-[11px]" id="lbl-track-trace-desc">ఈ కూరగాయలు పండించిన 0.75 ఎకరం ప్లాట్, సేంద్రీయ పోషకాలు మరియు కోత వివరాలు చూడండి.</p>
+            <a href="batch.php?code=<?= urlencode($order['order_code']) ?>" class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline" id="link-track-trace">
+              <span>పంట ప్రయాణం చూడండి &rarr;</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- Action Buttons -->
       <div class="flex flex-col sm:flex-row gap-2.5">
         <a href="index.php" class="btn btn-primary flex-1 btn-large text-xs font-bold text-center" id="btn-order-more"></a>
@@ -384,6 +482,37 @@ if ($order) {
           step4Desc.textContent = t.tracker_step4_desc;
         }
 
+        // REQ-ETA-01/02: ETA heading and queue position text
+        set('lbl-eta-heading',   t.tracker_eta_heading   || (isTe ? 'అంచనా డెలివరీ సమయం' : 'Estimated Delivery Window'));
+        set('lbl-queue-heading', t.tracker_queue_heading || (isTe ? 'మీ క్యూ స్థానం' : 'Your Queue Position'));
+        const qEl = document.getElementById('queue-position-text');
+        if (qEl) {
+          const mySeq = parseInt(qEl.dataset.myseq, 10);
+          const total = parseInt(qEl.dataset.total, 10);
+          const done  = parseInt(qEl.dataset.done,  10);
+          const status = qEl.dataset.status;
+          const driverStop = parseInt(qEl.dataset.driverstop, 10);
+          if (status === 'out_for_delivery') {
+            qEl.textContent = t.tracker_queue_active 
+              ? t.tracker_queue_active(driverStop, mySeq) 
+              : (isTe ? `డ్రైవర్ ప్రస్తుతం స్టాప్ ${driverStop} వద్ద ఉన్నాడు; మీ డెలివరీ స్టాప్ ${mySeq}` : `Driver is currently at Stop ${driverStop}; your delivery is Stop ${mySeq}`);
+          } else {
+            qEl.textContent = t.tracker_queue_waiting 
+              ? t.tracker_queue_waiting(mySeq, total) 
+              : (isTe ? `మీ ఆర్డర్ స్టాప్ ${mySeq} / ${total}` : `Your order is Stop ${mySeq} of ${total}`);
+          }
+        }
+
+        const etaEl = document.getElementById('eta-window-text');
+        if (etaEl) {
+          const day   = etaEl.dataset.day || '';
+          const start = etaEl.dataset.start || '';
+          const end   = etaEl.dataset.end || '';
+          if (t.tracker_eta_window) {
+            etaEl.textContent = t.tracker_eta_window(day, start, end);
+          }
+        }
+
         // Items heading
         set('lbl-items-heading', t.tracker_items_heading);
 
@@ -410,6 +539,11 @@ if ($order) {
         // Action buttons
         set('btn-order-more', t.btn_order_more);
         set('btn-wa-support', t.btn_whatsapp_support);
+
+        // REQ-TRC-02: Traceability card
+        set('lbl-track-trace-title', isTe ? '🌿 పంట మూలం & సేంద్రీయ ప్రయాణం' : '🌿 Farm Origin & Batch Traceability');
+        set('lbl-track-trace-desc', isTe ? 'ఈ కూరగాయలు పండించిన 0.75 ఎకరం ప్లాట్, సేంద్రీయ పోషకాలు మరియు కోత వివరాలు చూడండి.' : 'Trace these vegetables to the 0.75-acre farm plot, organic inputs, and harvest timeline.');
+        set('link-track-trace', isTe ? 'పంట ప్రయాణం చూడండి →' : 'View Crop Journey & Traceability →');
 
         // Empty state
         set('tracker-empty-title', t.tracker_empty_state_title);

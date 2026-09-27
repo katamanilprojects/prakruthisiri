@@ -51,20 +51,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_run_catalog') {
         exit;
     }
 
-    $catalog = $runInventoryService->getRunCatalog((int)$activeRun['id'], $status === 'OPEN');
+    $catalog     = $runInventoryService->getRunCatalog((int)$activeRun['id'], $status === 'OPEN');
     $bookedCount = $runInventoryService->getBookedOrdersCount((int)$activeRun['id']);
-    $activeRun['status_mode'] = $status;
+    $activeRun['status_mode']         = $status;
     $activeRun['booked_orders_count'] = $bookedCount;
-    $activeRun['max_orders_limit'] = 30;
-    $activeRun['is_batch_full'] = ($bookedCount >= 30);
-    $activeRun['cutoff_fmt'] = !empty($activeRun['cutoff_datetime']) ? date('D, d M - h:i A', strtotime($activeRun['cutoff_datetime'])) : '';
-    $activeRun['order_open_fmt'] = !empty($activeRun['order_open_datetime']) ? date('D, d M - h:i A', strtotime($activeRun['order_open_datetime'])) : '';
-    $activeRun['delivery_fmt'] = !empty($activeRun['delivery_date']) ? date('l, d M Y', strtotime($activeRun['delivery_date'])) : '';
+    $activeRun['max_orders_limit']    = 30;
+    $activeRun['is_batch_full']       = ($bookedCount >= 30);
+    $activeRun['cutoff_fmt']          = !empty($activeRun['cutoff_datetime'])
+        ? date('D, d M - h:i A', strtotime($activeRun['cutoff_datetime'])) : '';
+    $activeRun['open_fmt']            = !empty($activeRun['order_open_datetime'])
+        ? date('D, d M - h:i A', strtotime($activeRun['order_open_datetime'])) : '';
+    $activeRun['delivery_fmt']        = !empty($activeRun['delivery_date'])
+        ? date('l, d M Y', strtotime($activeRun['delivery_date'])) : '';
 
     echo json_encode([
         'success'  => true,
         'schedule' => $activeRun,
-        'catalog'  => $catalog
+        'catalog'  => $catalog,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -80,15 +83,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     $rawInput = file_get_contents('php://input');
-    $payload = json_decode($rawInput ?: '', true) ?: [];
-    $isEn = (($payload['lang'] ?? 'te') === 'en');
+    $payload  = json_decode($rawInput ?: '', true) ?: [];
+    $isEn     = (($payload['lang'] ?? 'te') === 'en');
 
-    $configService = new ConfigService($pdo);
+    $configService  = new ConfigService($pdo);
     $overrideStatus = $configService->getStoreOverrideStatus();
     if ($overrideStatus === 'FORCE_CLOSED') {
         throw new OrderValidationException(
-            $isEn 
-                ? 'Orders are temporarily closed. Please check back shortly.' 
+            $isEn
+                ? 'Orders are temporarily closed. Please check back shortly.'
                 : 'ఆర్డర్లు ప్రస్తుతం తాత్కాలికంగా నిలిపివేయబడ్డాయి. దయచేసి కాసేపటి తర్వాత ప్రయత్నించండి.'
         );
     }
@@ -100,42 +103,59 @@ try {
 
     if (empty($cartItems)) {
         throw new OrderValidationException(
-            $isEn 
-                ? 'Your cart is empty. Please select vegetables first.' 
+            $isEn
+                ? 'Your cart is empty. Please select vegetables first.'
                 : 'మీ బుట్ట ఖాళీగా ఉంది. దయచేసి కనీసం ఒక కూరగాయను ఎంచుకోండి.'
         );
     }
 
     $customerRegion = trim((string)($customerData['region'] ?? 'Hanamkonda'));
-    $customerLat    = !empty($customerData['latitude']) ? (float)$customerData['latitude'] : null;
-    $customerLng    = !empty($customerData['longitude']) ? (float)$customerData['longitude'] : null;
+    $customerLat    = isset($customerData['latitude'])  && is_numeric($customerData['latitude'])  ? (float)$customerData['latitude']  : null;
+    $customerLng    = isset($customerData['longitude']) && is_numeric($customerData['longitude']) ? (float)$customerData['longitude'] : null;
 
-    // 1. Mandatory 2-Layer Geofencing (Kazipet Longitude Cutoff & <= 11.5 km Radius)
+    // -------------------------------------------------------------------------
+    // REQ-EXP-01: Geofence check — return structured expansion_lead error
+    // instead of a hard error so the JS can show the waitlist card.
+    // -------------------------------------------------------------------------
     if ($customerLat !== null && $customerLng !== null) {
-        if (GeoFenceService::isKazipet($customerLat, $customerLng)) {
-            throw new OrderValidationException(
-                $isEn
-                    ? 'Kazipet is outside our delivery area. Currently serving Hanamkonda and Warangal only.'
-                    : 'క్షమించండి! మేము కాజీపేట ప్రాంతానికి డెలివరీ చేయట్లేదు. ప్రస్తుతం హనుమకొండ మరియు వరంగల్ నగరాలకు మాత్రమే డెలివరీలు ఉన్నాయి.'
-            );
-        }
-        if (!GeoFenceService::isWithinDeliveryRadius($customerLat, $customerLng)) {
-            $distance = GeoFenceService::getDistanceKm((float)$customerLat, (float)$customerLng);
-            throw new OrderValidationException(
-                $isEn
-                    ? "Your delivery location is " . number_format($distance, 1) . " km away. We only deliver within an 11.5 km radius from our farm hub."
-                    : "మీ డెలివరీ లొకేషన్ మా ఫామ్ హబ్ నుండి " . number_format($distance, 1) . " km దూరంలో ఉంది. మేము 11.5 km పరిధి లోపల మాత్రమే డెలివరీ చేస్తాము."
-            );
+        $isKazipet    = GeoFenceService::isKazipet($customerLat, $customerLng);
+        $isOutOfRange = !GeoFenceService::isWithinDeliveryRadius($customerLat, $customerLng);
+
+        if ($isKazipet || $isOutOfRange) {
+            $distance = GeoFenceService::getDistanceKm($customerLat, $customerLng);
+            $locality = trim((string)($customerData['delivery_address'] ?? ''));
+
+            http_response_code(400);
+            echo json_encode([
+                'success'    => false,
+                'error_type' => 'expansion_lead',
+                'error'      => $isEn
+                    ? 'Your location is outside our current delivery zone.'
+                    : 'మీ లొకేషన్ మా డెలివరీ జోన్ వెలుపల ఉంది.',
+                'lead_data'  => [
+                    'phone_number' => preg_replace('/\D/', '', (string)($customerData['phone_number'] ?? '')),
+                    'full_name'    => (string)($customerData['full_name'] ?? ''),
+                    'locality'     => $locality,
+                    'landmark'     => (string)($customerData['landmark'] ?? ''),
+                    'latitude'     => $customerLat,
+                    'longitude'    => $customerLng,
+                    'distance_km'  => round($distance, 1),
+                    'is_kazipet'   => $isKazipet,
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
         }
     }
 
-    // 2. Schedule Validation (Locality Match & Time Window)
-    $stmt = $pdo->prepare("SELECT * FROM `delivery_schedules` WHERE `id` = :id LIMIT 1");
+    // -------------------------------------------------------------------------
+    // Schedule Validation (Locality Match & Time Window)
+    // -------------------------------------------------------------------------
+    $stmt = $pdo->prepare('SELECT * FROM `delivery_schedules` WHERE `id` = :id LIMIT 1');
     $stmt->execute([':id' => $scheduleId]);
     $schedule = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$schedule) {
-        throw new OrderValidationException($isEn ? "Invalid delivery run selected." : "చెల్లని డెలివరీ రన్ ఎంచుకున్నారు.");
+        throw new OrderValidationException($isEn ? 'Invalid delivery run selected.' : 'చెల్లని డెలివరీ రన్ ఎంచుకున్నారు.');
     }
 
     if ($schedule['target_region'] !== $customerRegion) {
@@ -146,9 +166,9 @@ try {
         );
     }
 
-    $now = TimeWindow::now();
-    $tz = TimeWindow::getTimeZone();
-    $openDt = new DateTimeImmutable($schedule['order_open_datetime'], $tz);
+    $now      = TimeWindow::now();
+    $tz       = TimeWindow::getTimeZone();
+    $openDt   = new DateTimeImmutable($schedule['order_open_datetime'], $tz);
     $cutoffDt = new DateTimeImmutable($schedule['cutoff_datetime'], $tz);
 
     if ($now < $openDt) {
@@ -159,10 +179,12 @@ try {
         );
     }
     if ($now > $cutoffDt || (int)$schedule['is_ordering_open'] === 0) {
-        throw new OrderValidationException($isEn ? "Order cutoff for this batch has closed." : "ఈ రన్కి ఆర్డర్ల గడువు ముగిసింది.");
+        throw new OrderValidationException(
+            $isEn ? 'Order cutoff for this batch has closed.' : 'ఈ రన్కి ఆర్డర్ల గడువు ముగిసింది.'
+        );
     }
 
-    // 3. Enforce 30-Order Hard Cap per Batch
+    // Enforce 30-order hard cap
     $bookedCount = $runInventoryService->getBookedOrdersCount($scheduleId);
     if ($bookedCount >= 30) {
         throw new OrderValidationException(
@@ -172,7 +194,7 @@ try {
         );
     }
 
-    // 4. Atomically Create Order & Decrement Run Stock
+    // Atomically create order & decrement run stock
     $orderService = new OrderService($pdo, $configService, null, null, $runInventoryService);
     $result = $orderService->createOrder(
         $customerData,
@@ -184,11 +206,12 @@ try {
         $scheduleId
     );
 
-    $result['batch_name'] = (!empty($schedule['delivery_day']) ? $schedule['delivery_day'] . ' Batch' : 'Delivery Batch') . ' — ' . date('d M Y', strtotime($schedule['delivery_date']));
+    $result['batch_name']       = (!empty($schedule['delivery_day']) ? $schedule['delivery_day'] . ' Batch' : 'Delivery Batch')
+                                  . ' — ' . date('d M Y', strtotime($schedule['delivery_date']));
     $result['delivery_address'] = (string)($customerData['delivery_address'] ?? '');
-    $result['customer_name'] = (string)($customerData['full_name'] ?? '');
-    $result['customer_phone'] = (string)($customerData['phone_number'] ?? '');
-    $result['store_whatsapp'] = $configService->getStoreWhatsAppNumber();
+    $result['customer_name']    = (string)($customerData['full_name'] ?? '');
+    $result['customer_phone']   = (string)($customerData['phone_number'] ?? '');
+    $result['store_whatsapp']   = $configService->getStoreWhatsAppNumber();
 
     http_response_code(201);
     echo json_encode($result, JSON_UNESCAPED_UNICODE);

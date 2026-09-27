@@ -104,12 +104,78 @@ class RouteDispatchService
     }
 
     /**
+     * REQ-LOC-04: Retrieves all configured operating hubs.
+     */
+    public function getAllHubs(): array
+    {
+        try {
+            $stmt = $this->pdo->query("
+                SELECT * FROM `hub_locations` WHERE `is_active` = 1 ORDER BY `is_default_source` DESC, `id` ASC
+            ");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * REQ-LOC-04: Resolves source origin and return destination hubs for a target run.
+     * Supports "None / Finish at Last Customer Stop" when destination is null.
+     */
+    public function resolveScheduleHubs(?string $targetDate = null, ?int $scheduleId = null): array
+    {
+        $sourceHub = null;
+        $destHub   = null;
+
+        try {
+            if ($scheduleId !== null && $scheduleId > 0) {
+                $stmt = $this->pdo->prepare("SELECT `source_hub_id`, `destination_hub_id` FROM `delivery_schedules` WHERE `id` = ?");
+                $stmt->execute([$scheduleId]);
+                $sched = $stmt->fetch(PDO::FETCH_ASSOC);
+            } elseif ($targetDate !== null) {
+                $stmt = $this->pdo->prepare("SELECT `source_hub_id`, `destination_hub_id` FROM `delivery_schedules` WHERE `delivery_date` = ? LIMIT 1");
+                $stmt->execute([$targetDate]);
+                $sched = $stmt->fetch(PDO::FETCH_ASSOC);
+            } else {
+                $sched = false;
+            }
+
+            if ($sched) {
+                if (!empty($sched['source_hub_id'])) {
+                    $hStmt = $this->pdo->prepare("SELECT * FROM `hub_locations` WHERE `id` = ?");
+                    $hStmt->execute([$sched['source_hub_id']]);
+                    $sourceHub = $hStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+                if (!empty($sched['destination_hub_id'])) {
+                    $hStmt = $this->pdo->prepare("SELECT * FROM `hub_locations` WHERE `id` = ?");
+                    $hStmt->execute([$sched['destination_hub_id']]);
+                    $destHub = $hStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+            }
+        } catch (\Throwable $e) {
+            // graceful fallback
+        }
+
+        if (!$sourceHub) {
+            $sourceHub = $this->getStoreHub();
+        }
+
+        return [
+            'source'      => $sourceHub,
+            'destination' => $destHub, // null = Finish at Last Stop
+        ];
+    }
+
+    /**
      * Loads full dispatch data bundle for the given target date.
      */
     public function getDispatchData(string $targetDate): array
     {
-        $hub = $this->getStoreHub();
-        $drivers = $this->getActiveDrivers();
+        $hubs          = $this->resolveScheduleHubs($targetDate);
+        $hub           = $hubs['source'];
+        $sourceHub     = $hubs['source'];
+        $destHub       = $hubs['destination'];
+        $drivers       = $this->getActiveDrivers();
         $formattedDate = date('l, d M Y', strtotime($targetDate));
 
         // Fetch Orders for Selected Delivery Run
@@ -231,14 +297,36 @@ class RouteDispatchService
         unset($ro);
         ksort($ordersByLeg);
 
-        $initialGoogleMapsUrl = !empty($rawWaypointsNumeric)
-            ? 'https://www.google.com/maps/dir/?api=1&origin=' . urlencode($hub['latitude'] . ',' . $hub['longitude']) .
-              '&destination=' . urlencode($hub['latitude'] . ',' . $hub['longitude']) .
-              '&waypoints=' . urlencode(implode('|', array_map(fn($w) => $w[0] . ',' . $w[1], array_slice($rawWaypointsNumeric, 0, 9))))
-            : 'https://www.google.com/maps/search/?api=1&query=' . urlencode($hub['address']);
+        // REQ-LOC-04: Calculate final destination.
+        // If destination hub is specified, leg terminates at that hub.
+        // If destination is null ("Finish at Last Customer Stop"), leg terminates at last customer stop.
+        if (!empty($rawWaypointsNumeric)) {
+            $originCoords = $sourceHub['latitude'] . ',' . $sourceHub['longitude'];
+            if ($destHub !== null) {
+                $destCoords = $destHub['latitude'] . ',' . $destHub['longitude'];
+                $waypointsForGmaps = array_slice($rawWaypointsNumeric, 0, 8);
+            } else {
+                // Finish at last stop
+                $lastStop = end($rawWaypointsNumeric);
+                $destCoords = $lastStop[0] . ',' . $lastStop[1];
+                $waypointsForGmaps = count($rawWaypointsNumeric) > 1 ? array_slice($rawWaypointsNumeric, 0, count($rawWaypointsNumeric) - 1) : [];
+                $waypointsForGmaps = array_slice($waypointsForGmaps, 0, 8);
+            }
+
+            $wpParam = !empty($waypointsForGmaps)
+                ? '&waypoints=' . urlencode(implode('|', array_map(fn($w) => $w[0] . ',' . $w[1], $waypointsForGmaps)))
+                : '';
+
+            $initialGoogleMapsUrl = 'https://www.google.com/maps/dir/?api=1&origin=' . urlencode($originCoords) .
+                                    '&destination=' . urlencode($destCoords) . $wpParam;
+        } else {
+            $initialGoogleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . urlencode($sourceHub['address'] ?? 'Warangal');
+        }
 
         return [
-            'hub'                   => $hub,
+            'hub'                   => $sourceHub,
+            'source_hub'            => $sourceHub,
+            'destination_hub'       => $destHub,
             'drivers'               => $drivers,
             'target_date'           => $targetDate,
             'formatted_date'        => $formattedDate,

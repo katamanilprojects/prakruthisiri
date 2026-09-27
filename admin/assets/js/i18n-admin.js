@@ -13,9 +13,11 @@ const ADMIN_I18N = {
     exit: "Sign Out",
 
     // Navigation Tabs
+    nav_daily_hub: "Daily Ops Hub",
     nav_orders: "Orders List",
     nav_inventory: "Harvest & Stock",
     nav_routes: "Driver Route",
+    nav_locations: "Hub Locations",
     nav_harvest: "Harvest Sheet",
     nav_schedules: "Batch Calendar",
     nav_revenue: "Accounts & Cash",
@@ -108,9 +110,11 @@ const ADMIN_I18N = {
     exit: "లాగౌట్",
 
     // Navigation Tabs
+    nav_daily_hub: "రోజువారీ కార్యకలాపాలు",
     nav_orders: "ఆర్డర్ల జాబితా",
     nav_inventory: "హార్వెస్ట్ & స్టాక్",
     nav_routes: "డ్రైవర్ రూట్",
+    nav_locations: "హబ్ స్థానాలు",
     nav_harvest: "హార్వెస్ట్ షీట్",
     nav_schedules: "బ్యాచ్ క్యాలెండర్",
     nav_revenue: "ఖాతాలు & నగదు",

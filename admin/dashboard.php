@@ -3,11 +3,10 @@
 declare(strict_types=1);
 
 /**
- * Prakruthi Siri - Dashboard Legacy Redirection
- * Seamlessly redirects legacy dashboard requests to the Financials & Operations portal hub.
+ * Prakruthi Siri - Dashboard Redirection to Daily Operations Hub
  */
 
 require_once __DIR__ . '/auth_guard.php';
 
-header('Location: revenue.php');
+header('Location: daily-hub.php');
 exit;

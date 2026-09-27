@@ -244,6 +244,31 @@ $whatsappUrl = "https://wa.me/" . $hubWhatsApp . "?text=" . rawurlencode($messag
         </div>
       </div>
 
+      <!-- REQ-TRC-02: Batch Traceability Card with QR Code -->
+      <?php
+        $batchUrl = rtrim($host, '/') . "/batch.php?code=" . urlencode($orderCode);
+        $qrImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=0&data=" . urlencode($batchUrl);
+      ?>
+      <div class="app-card text-center space-y-3 p-4 bg-emerald-50/50 border border-emerald-200">
+        <div class="flex items-center justify-between border-b border-emerald-200 pb-2">
+          <span class="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5" id="lbl-trace-heading">
+            <span>🌿</span> <span>పంట మూలం &amp; సేంద్రీయ ప్రయాణం</span>
+          </span>
+          <span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold">100% Organic</span>
+        </div>
+        <p class="text-xs text-slate-600" id="lbl-trace-desc">
+          మీ కూరగాయలు పండించిన 0.75 ఎకరం ప్లాట్, సేంద్రీయ పోషకాలు మరియు కోత వివరాలు చూడటానికి క్రింది QR కోడ్‌ను స్కాన్ చేయండి:
+        </p>
+        <div class="inline-block p-2 bg-white rounded-2xl border border-emerald-200 shadow-xs">
+          <img src="<?= htmlspecialchars($qrImageUrl, ENT_QUOTES) ?>" alt="Batch Traceability QR" width="120" height="120" class="mx-auto rounded-lg">
+        </div>
+        <div>
+          <a href="batch.php?code=<?= urlencode($orderCode) ?>" class="btn btn-secondary text-xs font-bold text-emerald-800 border-emerald-300 w-full flex items-center justify-center gap-1.5" id="btn-trace-link">
+            <span>🌱</span> <span>పంట ప్రయాణం చూడండి (View Traceability) &rarr;</span>
+          </a>
+        </div>
+      </div>
+
       <!-- 4. Prominent WhatsApp Share Button -->
       <a 
         href="<?= htmlspecialchars($whatsappUrl, ENT_QUOTES) ?>" 
@@ -346,6 +371,13 @@ $whatsappUrl = "https://wa.me/" . $hubWhatsApp . "?text=" . rawurlencode($messag
         set('btn-whatsapp-text', t.btn_send_whatsapp);
         set('btn-track-order-text', t.btn_track_order);
         set('btn-shop-more-text', t.btn_shop_more);
+
+        // REQ-TRC-02: Traceability Card translations
+        set('lbl-trace-heading', isTe ? '🌿 పంట మూలం & సేంద్రీయ ప్రయాణం' : '🌿 Farm Origin & Batch Traceability');
+        set('lbl-trace-desc', isTe 
+          ? 'మీ కూరగాయలు పండించిన 0.75 ఎకరం ప్లాట్, సేంద్రీయ పోషకాలు మరియు కోత వివరాలు చూడటానికి క్రింది QR కోడ్‌ను స్కాన్ చేయండి:' 
+          : 'Scan this QR code or tap below to trace your vegetables back to the 0.75-acre farm plot, organic inputs, and dawn harvest:');
+        set('btn-trace-link', isTe ? '🌱 పంట ప్రయాణం చూడండి (View Traceability) →' : '🌱 View Crop Journey & Traceability →');
       }
 
       document.getElementById('success-lang-te')?.addEventListener('click', () => setSuccessLanguage('te'));

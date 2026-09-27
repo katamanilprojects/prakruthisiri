@@ -251,6 +251,7 @@ class OrderService
                     p.`name`,
                     p.`telugu_name`,
                     p.`category`,
+                    COALESCE(ri.`pricing_unit`, p.`pricing_unit`, \'half_kg\') AS `pricing_unit`,
                     ri.`price_per_half_kg`,
                     ri.`available_half_kg_stock`,
                     ri.`is_active`
@@ -322,6 +323,7 @@ class OrderService
                     'product_name'        => $product['name'],
                     'telugu_name'         => $product['telugu_name'],
                     'half_kg_quantity'    => $quantity,
+                    'pricing_unit'        => $product['pricing_unit'] ?? 'half_kg',
                     'unit_price_applied'  => $unitPrice,
                     'line_total'          => $lineTotal,
                 ];
@@ -398,12 +400,14 @@ class OrderService
                     `order_id`,
                     `product_id`,
                     `half_kg_quantity`,
+                    `pricing_unit`,
                     `unit_price_applied`,
                     `line_total`
                 ) VALUES (
                     :order_id,
                     :product_id,
                     :half_kg_quantity,
+                    :pricing_unit,
                     :unit_price_applied,
                     :line_total
                 )
@@ -414,6 +418,7 @@ class OrderService
                     ':order_id'           => $orderId,
                     ':product_id'         => $item['product_id'],
                     ':half_kg_quantity'   => $item['half_kg_quantity'],
+                    ':pricing_unit'       => $item['pricing_unit'] ?? 'half_kg',
                     ':unit_price_applied' => $item['unit_price_applied'],
                     ':line_total'         => $item['line_total'],
                 ]);

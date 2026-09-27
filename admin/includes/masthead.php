@@ -5,12 +5,14 @@ $adminName  = (string) ($_SESSION['admin_name'] ?? 'Admin');
 $activePage = $activePage ?? 'orders';
 
 $navItems = [
-    'orders'    => ['title' => 'Orders List',       'icon' => '🛒', 'url' => 'orders.php'],
-    'inventory' => ['title' => 'Harvest & Stock',   'icon' => '🥦', 'url' => 'inventory.php'],
-    'routes'    => ['title' => 'Driver Route',      'icon' => '🚚', 'url' => 'routes.php'],
-    'schedules' => ['title' => 'Batch Calendar',    'icon' => '📅', 'url' => 'schedules.php'],
-    'revenue'   => ['title' => 'Accounts & Cash',   'icon' => '💰', 'url' => 'revenue.php'],
-    'customers' => ['title' => 'Customers',         'icon' => '👥', 'url' => 'customers.php'],
+    'daily-hub' => ['title' => 'Daily Ops Hub',   'icon' => '⚡', 'url' => 'daily-hub.php'],
+    'orders'    => ['title' => 'Orders List',     'icon' => '🛒', 'url' => 'orders.php'],
+    'inventory' => ['title' => 'Harvest & Stock', 'icon' => '🥦', 'url' => 'inventory.php'],
+    'routes'    => ['title' => 'Driver Route',    'icon' => '🚚', 'url' => 'routes.php'],
+    'locations' => ['title' => 'Hub Locations',   'icon' => '📍', 'url' => 'locations.php'],
+    'schedules' => ['title' => 'Batch Calendar',  'icon' => '📅', 'url' => 'schedules.php'],
+    'revenue'   => ['title' => 'Accounts & Cash', 'icon' => '💰', 'url' => 'revenue.php'],
+    'customers' => ['title' => 'Customers',       'icon' => '👥', 'url' => 'customers.php'],
 ];
 ?>
 <header class="bg-white border-b border-slate-200 no-print shadow-xs sticky top-0 z-30">
@@ -98,7 +100,7 @@ $navItems = [
       // Navigation tab links
       document.querySelectorAll('[data-nav-key]').forEach(el => {
         const key = el.getAttribute('data-nav-key');
-        const navKey = 'nav_' + key;
+        const navKey = 'nav_' + key.replace(/-/g, '_');
         const textSpan = el.querySelector('.nav-item-text') || el;
         if (dict[navKey]) {
           textSpan.textContent = dict[navKey];

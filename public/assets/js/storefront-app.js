@@ -90,15 +90,24 @@ function setCustomerLanguage(lang) {
   set('lbl-confirmed-dest', t.lbl_delivering_to);
   set('btn-change-active-address', t.btn_change_address);
 
-  // --- Locked catalog card ---
-  set('locked-card-title', t.locked_title);
-  set('locked-card-desc', t.locked_desc);
-  set('locked-card-badge', t.locked_badge);
 
   // --- Delivery Banner & Catalog ---
   set('pill-hanamkonda-label', t.hanamkonda_label);
   set('pill-warangal-label', t.warangal_label);
   set('txt-batch-full-msg', t.batch_full_msg);
+
+  // REQ-LOC-01/02/EXP-01: translate modal, locked card, expansion card
+  const setEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setEl('modal-region-title',     t.modal_region_title);
+  setEl('modal-region-desc',      t.modal_region_desc);
+  setEl('modal-region-note',      t.modal_region_note);
+  setEl('modal-hanamkonda-label', t.hanamkonda_label);
+  setEl('modal-warangal-label',   t.warangal_label);
+  setEl('exp-title',              t.exp_title);
+  setEl('exp-desc',               t.exp_desc);
+  setEl('exp-threshold-msg',      t.exp_threshold_msg);
+  setEl('btn-join-waitlist-text', t.btn_join_waitlist);
+  renderLockedCard();
 
   updateScheduleHeaderUI();
 
@@ -1286,142 +1295,8 @@ function closeCheckoutDrawer() {
 }
 
 // --------------------------------------------------------------------------
-// Order Submission & WhatsApp Sync
+// Order Submission & WhatsApp Sync — implemented in Phase 2 block below
 // --------------------------------------------------------------------------
-async function submitOrder(e) {
-  e.preventDefault();
-  const t = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
-  const isTe = (currentLang === 'te');
-
-  if (!activeSchedule || !activeSchedule.id) {
-    alert(isTe ? 'దయచేసి ఒక డెలివరీ బ్యాచ్ ఎంచుకోండి.' : 'Please select an active delivery batch.');
-    return;
-  }
-
-  if (activeSchedule.is_batch_full) {
-    alert(t.batch_full_alert);
-    return;
-  }
-
-  const itemsPayload = [];
-  const itemLines = [];
-  let subtotal = 0;
-
-  for (const [pidStr, qty] of Object.entries(cart)) {
-    if (qty > 0) {
-      const pid = parseInt(pidStr, 10);
-      const prod = activeCatalog.find(p => parseInt(p.product_id || p.id, 10) === pid);
-      itemsPayload.push({ product_id: pid, quantity: qty });
-      if (prod) {
-        const price = parseFloat(prod.price_per_half_kg || 0);
-        const lineTot = price * qty;
-        subtotal += lineTot;
-        const weight = (qty * 0.5).toFixed(1);
-        const prodName = isTe ? (prod.telugu_name || prod.name) : prod.name;
-        const pktWord = isTe ? 'ప్యాకెట్లు' : 'pkts';
-        itemLines.push(`- ${prodName}: ${qty} ${pktWord} (${weight} kg) - ₹${lineTot.toFixed(0)}`);
-      }
-    }
-  }
-
-  if (!itemsPayload.length) {
-    alert(t.empty_basket_alert);
-    return;
-  }
-
-  const form = document.getElementById('checkout-form');
-  const formData = new FormData(form);
-
-  const customerData = {
-    full_name: formData.get('full_name').toString().trim(),
-    phone_number: formData.get('phone_number').toString().trim(),
-    delivery_address: formData.get('delivery_address').toString().trim(),
-    landmark: formData.get('landmark')?.toString().trim() || null,
-    region: formData.get('region').toString().trim(),
-    latitude: formData.get('latitude') ? parseFloat(formData.get('latitude').toString()) : null,
-    longitude: formData.get('longitude') ? parseFloat(formData.get('longitude').toString()) : null
-  };
-
-  saveProfilePhone();
-  localStorage.setItem('ps_cust_profile', JSON.stringify(customerData));
-  localStorage.setItem('ps_saved_profile', JSON.stringify(customerData));
-
-  const paymentMethod = formData.get('payment_method')?.toString() || 'COD';
-  const btn = document.getElementById('btn-confirm-order');
-  btn.disabled = true;
-  btn.textContent = t.saving_order;
-
-  try {
-    const resp = await fetch('api/checkout.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        schedule_id: parseInt(activeSchedule.id, 10),
-        customer: customerData,
-        items: itemsPayload,
-        payment_method: paymentMethod,
-        lang: currentLang
-      })
-    });
-
-    const data = await resp.json();
-
-    if (data.success && data.order_code) {
-      const orderCode = data.order_code;
-      const deliveryFee = (subtotal >= movThreshold || subtotal === 0) ? 0 : standardDeliveryFee;
-      const totalAmount = subtotal + deliveryFee;
-      const host = window.location.origin + window.location.pathname.replace('index.php', '');
-      const trackUrl = `${host}track.php?code=${orderCode}`;
-
-      const payMethodLabel = paymentMethod === 'COD' 
-        ? (isTe ? 'క్యాష్ ఆన్ డెలివరీ' : 'Cash on Delivery') 
-        : (isTe ? 'ఆన్‌లైన్ UPI' : 'Online UPI');
-
-      const waMessage = isTe 
-        ? `🌱 *ప్రకృతి సిరి - ఆర్డర్ నిర్ధారణ*
-ఆర్డర్ కోడ్: #${orderCode}
-కస్టమర్: ${customerData.full_name}
-ఫోన్: ${customerData.phone_number}
-డెలివరీ బ్యాచ్: ${activeSchedule.delivery_day || ''}, ${activeSchedule.delivery_date || ''} (${activeSchedule.target_region || currentRegion})
-చిరునామా: ${customerData.delivery_address}${customerData.landmark ? ', ' + customerData.landmark : ''}
-
-కూరగాయలు:
-${itemLines.join('\n')}
-
-మొత్తం: ₹${totalAmount.toFixed(2)} (${payMethodLabel})
-📍 ఆర్డర్ లైవ్ ట్రాకింగ్: ${trackUrl}`
-        : `🌱 *Prakruthi Siri - Order Confirmation*
-Order Code: #${orderCode}
-Customer: ${customerData.full_name}
-Phone: ${customerData.phone_number}
-Batch: ${activeSchedule.delivery_day || ''}, ${activeSchedule.delivery_date || ''} (${activeSchedule.target_region || currentRegion})
-Address: ${customerData.delivery_address}${customerData.landmark ? ', ' + customerData.landmark : ''}
-
-Items:
-${itemLines.join('\n')}
-
-Total Amount: ₹${totalAmount.toFixed(2)} (${payMethodLabel})
-📍 Track Order: ${trackUrl}`;
-
-      const waUrl = `https://wa.me/${storeWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMessage)}`;
-
-      cart = {};
-      localStorage.removeItem('ps_cart');
-
-      window.location.href = `order-success.php?code=${encodeURIComponent(orderCode)}&auto_wa=1`;
-
-    } else {
-      alert(data.error || data.message || (isTe ? 'ఆర్డర్ చేయడం విఫలమైంది.' : 'Failed to place order.'));
-      btn.disabled = false;
-      btn.textContent = t.btn_confirm_order;
-    }
-  } catch (err) {
-    alert((isTe ? 'నెట్‌వర్క్ సమస్య: ' : 'Network Error: ') + err.message);
-    btn.disabled = false;
-    btn.textContent = t.btn_confirm_order;
-  }
-}
-
 // Init Language
 document.getElementById('btn-lang-te')?.addEventListener('click', () => setCustomerLanguage('te'));
 document.getElementById('btn-lang-en')?.addEventListener('click', () => setCustomerLanguage('en'));
@@ -1450,4 +1325,292 @@ setCustomerLanguage(currentLang);
       }
     }
   } catch(e) {}
+})();
+
+// =============================================================================
+// PHASE 2 — REQ-LOC-01 / REQ-LOC-02 / REQ-EXP-01
+// =============================================================================
+
+// --------------------------------------------------------------------------
+// Region Modal (REQ-LOC-01)
+// --------------------------------------------------------------------------
+function showRegionModal() {
+  const t = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
+  const modal = document.getElementById('region-modal');
+  if (!modal) return;
+
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('modal-region-title',     t.modal_region_title);
+  set('modal-region-desc',      t.modal_region_desc);
+  set('modal-region-note',      t.modal_region_note);
+  set('modal-hanamkonda-label', t.hanamkonda_label);
+  set('modal-warangal-label',   t.warangal_label);
+
+  modal.classList.remove('hidden');
+}
+
+function hideRegionModal() {
+  document.getElementById('region-modal')?.classList.add('hidden');
+}
+
+function selectRegionFromModal(region) {
+  hideRegionModal();
+  localStorage.setItem('ps_selected_region', region);
+  currentRegion = region;
+  document.getElementById('cust-region') && (document.getElementById('cust-region').value = region);
+  switchRegion(region);
+  renderLockedCard();
+}
+
+// --------------------------------------------------------------------------
+// Locked Card Renderer (REQ-LOC-02)
+// Determines which locked state to show based on regionSchedules data.
+// --------------------------------------------------------------------------
+function renderLockedCard() {
+  const t = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const show = (id) => { const e = document.getElementById(id); if (e) e.classList.remove('hidden'); };
+  const hide = (id) => { const e = document.getElementById(id); if (e) e.classList.add('hidden'); };
+
+  const card = document.getElementById('catalog-locked-card');
+  if (!card) return;
+
+  // If catalog is already visible, keep locked card hidden
+  const catalogVisible = !document.getElementById('storefront-catalog-section')?.classList.contains('hidden');
+  if (catalogVisible) { card.classList.add('hidden'); return; }
+
+  if (!currentRegion) { card.classList.add('hidden'); return; }
+
+  const mySched   = regionSchedules[currentRegion];
+  const otherReg  = currentRegion === 'Hanamkonda' ? 'Warangal' : 'Hanamkonda';
+  const otherSched = regionSchedules[otherReg];
+
+  card.classList.remove('hidden');
+  hide('locked-cross-region');
+  hide('locked-closed-window');
+
+  const myIsOpen = mySched && mySched.status_mode === 'OPEN';
+
+  if (myIsOpen) {
+    // Catalog should be loading — hide locked card entirely
+    card.classList.add('hidden');
+    return;
+  }
+
+  const otherIsOpen = otherSched && otherSched.status_mode === 'OPEN';
+
+  if (otherIsOpen) {
+    // Cross-region: other region is open, mine is not
+    show('locked-cross-region');
+
+    const myOpenFmt  = mySched ? (mySched.open_fmt || mySched.delivery_fmt || '') : '';
+    const myRegLabel  = t[currentRegion === 'Hanamkonda' ? 'hanamkonda_label' : 'warangal_label'];
+    const othRegLabel = t[otherReg === 'Hanamkonda' ? 'hanamkonda_label' : 'warangal_label'];
+
+    set('locked-cross-title', t.locked_cross_title);
+    const descEl = document.getElementById('locked-cross-desc');
+    if (descEl) descEl.textContent = t.locked_cross_desc(othRegLabel, '', myRegLabel, myOpenFmt);
+
+    const opensEl = document.getElementById('locked-cross-opens-label');
+    if (opensEl) opensEl.textContent = t.locked_cross_opens_label(myRegLabel, myOpenFmt);
+
+    set('locked-cross-wa-text',    t.locked_cross_wa_text);
+    set('locked-cross-change-btn', t.locked_cross_change_btn);
+
+    // WhatsApp remind-me deep link
+    const waLink = document.getElementById('locked-cross-wa-link');
+    if (waLink) {
+      const waNum = storeWhatsApp.replace(/\D/g, '');
+      const isTe  = currentLang === 'te';
+      const msg   = isTe
+        ? `\u0c28\u0c2e\u0c38\u0c4d\u0c15\u0c3e\u0c30\u0c02! ${myRegLabel} \u0c06\u0c30\u0c4d\u0c21\u0c30\u0c4d\u0c32\u0c41 \u0c24\u0c46\u0c30\u0c41\u0c1a\u0c41\u0c15\u0c41\u0c28\u0c4d\u0c28\u0c2a\u0c4d\u0c2a\u0c41\u0c21\u0c41 \u0c28\u0c28\u0c4d\u0c28\u0c41 \u0c17\u0c41\u0c30\u0c4d\u0c24\u0c41 \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f.`
+        : `Hello! Please remind me when ${myRegLabel} orders open.`;
+      waLink.href = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+    }
+  } else {
+    // Window closed for selected region
+    show('locked-closed-window');
+
+    const myRegLabel = t[currentRegion === 'Hanamkonda' ? 'hanamkonda_label' : 'warangal_label'];
+    const nextFmt    = mySched ? (mySched.open_fmt || mySched.delivery_fmt || '') : '';
+
+    set('locked-closed-title', t.locked_closed_title);
+    const descEl = document.getElementById('locked-closed-desc');
+    if (descEl) descEl.textContent = t.locked_closed_desc(myRegLabel, nextFmt);
+
+    const badgeEl = document.getElementById('locked-closed-badge');
+    if (badgeEl) badgeEl.textContent = t.locked_closed_badge(nextFmt);
+
+    set('locked-closed-change-btn', t.locked_closed_change_btn);
+  }
+}
+
+// --------------------------------------------------------------------------
+// REQ-EXP-01: Expansion Lead Card
+// Called by checkout.php when error_type === 'expansion_lead'
+// --------------------------------------------------------------------------
+let _expansionLeadData = null;
+
+function showExpansionLeadCard(leadData) {
+  _expansionLeadData = leadData;
+  const t   = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const show = (id) => { const e = document.getElementById(id); if (e) e.classList.remove('hidden'); };
+
+  set('exp-title',          t.exp_title);
+  set('exp-desc',           t.exp_desc);
+  set('exp-threshold-msg',  t.exp_threshold_msg);
+  set('btn-join-waitlist-text', t.btn_join_waitlist);
+
+  const alreadyEl = document.getElementById('exp-already-joined');
+  if (alreadyEl) alreadyEl.style.display = 'none';
+
+  show('expansion-lead-card');
+
+  // Scroll to it
+  document.getElementById('expansion-lead-card')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function submitExpansionLead() {
+  if (!_expansionLeadData) return;
+  const t   = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
+  const btn = document.getElementById('btn-join-waitlist');
+  if (btn) btn.disabled = true;
+
+  try {
+    const resp = await fetch('api/expansion-lead.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_expansionLeadData),
+    });
+    const data = await resp.json();
+
+    const alreadyEl = document.getElementById('exp-already-joined');
+    if (alreadyEl) {
+      alreadyEl.textContent = t.exp_already_joined;
+      alreadyEl.style.display = 'block';
+    }
+    if (btn) btn.classList.add('hidden');
+  } catch (err) {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// --------------------------------------------------------------------------
+// Patch submitOrder to handle expansion_lead error_type (REQ-EXP-01)
+// --------------------------------------------------------------------------
+async function submitOrder(e) {
+  e.preventDefault();
+  const t   = CUSTOMER_I18N[currentLang] || CUSTOMER_I18N.te;
+  const isTe = currentLang === 'te';
+
+  if (!activeSchedule || !activeSchedule.id) {
+    alert(isTe ? '\u0c26\u0c2f\u0c1a\u0c47\u0c38\u0c3f \u0c12\u0c15 \u0c21\u0c46\u0c32\u0c3f\u0c35\u0c30\u0c40 \u0c2c\u0c4d\u0c2f\u0c3e\u0c1a\u0c4d \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f.' : 'Please select an active delivery batch.');
+    return;
+  }
+  if (activeSchedule.is_batch_full) { alert(t.batch_full_alert); return; }
+
+  const itemsPayload = [];
+  const itemLines    = [];
+  let subtotal = 0;
+
+  for (const [pidStr, qty] of Object.entries(cart)) {
+    if (qty > 0) {
+      const pid  = parseInt(pidStr, 10);
+      const prod = activeCatalog.find(p => parseInt(p.product_id || p.id, 10) === pid);
+      itemsPayload.push({ product_id: pid, quantity: qty });
+      if (prod) {
+        const price   = parseFloat(prod.price_per_half_kg || 0);
+        const lineTot = price * qty;
+        subtotal += lineTot;
+        const weight   = (qty * 0.5).toFixed(1);
+        const prodName = isTe ? (prod.telugu_name || prod.name) : prod.name;
+        itemLines.push(`- ${prodName}: ${qty} pkts (${weight} kg) - \u20b9${lineTot.toFixed(0)}`);
+      }
+    }
+  }
+
+  if (!itemsPayload.length) { alert(t.empty_basket_alert); return; }
+
+  const form       = document.getElementById('checkout-form');
+  const formData   = new FormData(form);
+  const customerData = {
+    full_name:        formData.get('full_name').toString().trim(),
+    phone_number:     formData.get('phone_number').toString().trim(),
+    delivery_address: formData.get('delivery_address').toString().trim(),
+    landmark:         formData.get('landmark')?.toString().trim() || null,
+    region:           formData.get('region').toString().trim(),
+    latitude:         formData.get('latitude') ? parseFloat(formData.get('latitude').toString()) : null,
+    longitude:        formData.get('longitude') ? parseFloat(formData.get('longitude').toString()) : null,
+  };
+
+  const paymentMethod = formData.get('payment_method')?.toString() || 'COD';
+  const btn = document.getElementById('btn-confirm-order');
+  btn.disabled = true;
+  const btnText = document.getElementById('btn-confirm-order-text');
+  if (btnText) btnText.textContent = t.saving_order;
+
+  try {
+    const resp = await fetch('api/checkout.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schedule_id:    parseInt(activeSchedule.id, 10),
+        customer:       customerData,
+        items:          itemsPayload,
+        payment_method: paymentMethod,
+        lang:           currentLang,
+      }),
+    });
+
+    const data = await resp.json();
+
+    // REQ-EXP-01: out-of-boundary address — show expansion waitlist card
+    if (!data.success && data.error_type === 'expansion_lead') {
+      btn.disabled = false;
+      if (btnText) btnText.textContent = t.btn_confirm_order;
+      closeCheckoutDrawer();
+      showExpansionLeadCard(data.lead_data);
+      return;
+    }
+
+    if (data.success && data.order_code) {
+      const orderCode    = data.order_code;
+      const deliveryFee  = (subtotal >= movThreshold || subtotal === 0) ? 0 : standardDeliveryFee;
+      const totalAmount  = subtotal + deliveryFee;
+      const host         = window.location.origin + window.location.pathname.replace('index.php', '');
+      const trackUrl     = `${host}track.php?code=${orderCode}`;
+      const payLabel     = paymentMethod === 'COD'
+        ? (isTe ? '\u0c15\u0c4d\u0c2f\u0c3e\u0c37\u0c4d \u0c06\u0c28\u0c4d \u0c21\u0c46\u0c32\u0c3f\u0c35\u0c30\u0c40' : 'Cash on Delivery')
+        : (isTe ? '\u0c06\u0c28\u0c4d\u0c32\u0c48\u0c28\u0c4d UPI' : 'Online UPI');
+
+      cart = {};
+      localStorage.removeItem('ps_cart');
+      window.location.href = `order-success.php?code=${encodeURIComponent(orderCode)}&auto_wa=1`;
+    } else {
+      alert(data.error || data.message || (isTe ? '\u0c06\u0c30\u0c4d\u0c21\u0c30\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f.' : 'Failed to place order.'));
+      btn.disabled = false;
+      if (btnText) btnText.textContent = t.btn_confirm_order;
+    }
+  } catch (err) {
+    alert((isTe ? '\u0c28\u0c46\u0c1f\u0c4d\u0c35\u0c30\u0c4d\u0c15\u0c4d \u0c38\u0c2e\u0c38\u0c4d\u0c2f: ' : 'Network Error: ') + err.message);
+    btn.disabled = false;
+    if (btnText) btnText.textContent = t.btn_confirm_order;
+  }
+}
+
+// --------------------------------------------------------------------------
+// Boot: determine region on page load
+// --------------------------------------------------------------------------
+(function bootRegionGate() {
+  const saved = localStorage.getItem('ps_selected_region');
+  if (saved === 'Hanamkonda' || saved === 'Warangal') {
+    currentRegion = saved;
+    // switchRegion will load the catalog; renderLockedCard handles locked states
+    switchRegion(currentRegion);
+    renderLockedCard();
+  } else {
+    // First visit — show 1-tap region selector modal
+    showRegionModal();
+  }
 })();

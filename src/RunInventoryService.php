@@ -94,6 +94,7 @@ class RunInventoryService
                 p.`telugu_name`,
                 p.`category`,
                 p.`image_path`,
+                COALESCE(ri.`pricing_unit`, p.`pricing_unit`, "half_kg") AS `pricing_unit`,
                 COALESCE(ri.`unit_label`, p.`unit_label`, "0.5 kg") AS `unit_label`,
                 COALESCE(ri.`unit_weight_kg`, p.`unit_weight_kg`, 0.500) AS `unit_weight_kg`,
                 ri.`id` AS `run_inventory_id`,
@@ -117,6 +118,7 @@ class RunInventoryService
             $pricePerHalfKg = (float) $r['price_per_half_kg'];
             $harvestKg = (float) $r['harvest_kg'];
             $unitWeight = (float) ($r['unit_weight_kg'] ?? 0.500);
+            $pricingUnit = (string) ($r['pricing_unit'] ?? 'half_kg');
 
             return [
                 'id'                      => (int) $r['product_id'],
@@ -126,14 +128,17 @@ class RunInventoryService
                 'name'                    => $r['name'],
                 'telugu_name'             => $r['telugu_name'],
                 'category'                => $r['category'],
+                'pricing_unit'            => $pricingUnit,
                 'unit_label'              => (string) ($r['unit_label'] ?? '0.5 kg'),
                 'unit_weight_kg'          => $unitWeight,
                 'image_path'              => $r['image_path'],
                 'harvest_kg'              => $harvestKg,
                 'price_per_half_kg'       => $pricePerHalfKg,
+                'unit_price'              => $pricePerHalfKg,
                 'price_per_kg_equivalent' => round($pricePerHalfKg * 2.0, 2),
                 'available_half_kg_stock' => $packets,
-                'available_kg_equivalent' => $this->convertPacketsToKg($packets, $unitWeight),
+                'available_stock'         => $packets,
+                'available_kg_equivalent' => $pricingUnit === 'half_kg' ? $this->convertPacketsToKg($packets, $unitWeight) : null,
                 'is_in_stock'             => $packets > 0,
                 'is_active'               => (bool) $r['is_active'],
             ];
